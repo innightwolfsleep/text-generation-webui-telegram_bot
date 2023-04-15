@@ -5,8 +5,16 @@ REQUIREMENTS:
 - python-telegram-bot==13.15
 - pyyaml
 
+This is extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) providing cai-chat like telegram bot interface.
+[Image1](https://github.com/innightwolfsleep/storage/raw/main/textgen_telegram.PNG)
+
+HOW TO INSTALL:
+1) clone this repo to "text-generation-webui\extensions"
+2) install telegram module to your textgen envivroment. (Easiest way is run webui.bat with additional string "call pip install -r extensions\telegram_bot\requirements.txt" before "call python server.py"
+
 HOW TO USE:
-1) place to your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt"
+1) place to your bot token to text-generation-webui\extensions\telegram_bot\telegram_token.txt
+1) add your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt" (ask https://t.me/BotFather how to get token)
 2) run server.py with "--extensions telegram_bot"
 
 FEATURES:
