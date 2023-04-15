@@ -10,7 +10,7 @@ REQUIREMENTS:
 
 HOW TO INSTALL:
 1) clone this repo to "text-generation-webui\extensions"
-2) install "python-telegram-bot==13.15" module to your textgen envivroment. (Easiest way is run webui.bat with additional string "call pip install -r extensions\telegram_bot\requirements.txt" before "call python server.py"
+2) install "python-telegram-bot==13.15" module to your textgen envivroment. (Easiest way is run "webui.bat" with additional string "call pip install -r extensions\telegram_bot\requirements.txt" before "call python server.py"
 
 HOW TO USE:
 1) add your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt" (ask https://t.me/BotFather how to get token)
@@ -20,12 +20,13 @@ FEATURES:
 - chat and notebook modes
 - session for all users are separative (by chat_id)
 - local session history - conversation won't be lost if server restarts. Separated history between users and chars.
-- nice "X typing" during generating (users will not think that bot is stuck)
-- regenerate last message, remove last messages from history, reset history button, continue previous message
+- nice "X typing" during generating (users will not think that bot stucking)
+- buttons: continue previous message, regenerate last message, remove last messages from history, reset history button, new char loading menu
 - you can load new characters from text-generation-webui\characters with "/loadX" command!!!
 - chatting # prefix for impersonate: "#You" or "#Castle guard" or "#Alice thoughts about me"
 
 
 TBC:
+- save history/load history options.
 - replace "X typing" by yield from generator
 - group chat mode (need to be tested, does current workflow is ok?)
