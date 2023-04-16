@@ -1,4 +1,4 @@
-Extension connecting text-generator to telegram bot api.
+#Extension connecting text-generator to telegram bot api.
 -
 ![Image1](https://github.com/innightwolfsleep/storage/raw/main/textgen_telegram.PNG)
 
@@ -22,11 +22,12 @@ FEATURES:
 - local session history - conversation won't be lost if server restarts. Separated history between users and chars.
 - nice "X typing" during generating (users will not think that bot stucking)
 - buttons: continue previous message, regenerate last message, remove last messages from history, reset history button, new char loading menu
-- you can load new characters from text-generation-webui\characters with "/loadX" command!!!
+- you can load new characters from text-generation-webui\characters with "/load" command!!!
 - chatting # prefix for impersonate: "#You" or "#Castle guard" or "#Alice thoughts about me"
-
+- save/load history in chat by downloading/forwarding to chat .json file
 
 TBC:
-- save history/load history options.
 - replace "X typing" by yield from generator
 - group chat mode (need to be tested, does current workflow is ok?)
+- switch text generator settings
+- integrate google translator
