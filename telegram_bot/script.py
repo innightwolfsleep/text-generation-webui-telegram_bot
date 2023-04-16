@@ -18,6 +18,11 @@ from telegram.ext import MessageHandler
 from telegram.ext import CallbackQueryHandler
 from telegram.ext import Updater
 
+#import logging
+#logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+# datefmt='%Y.%m.%d %I:%M:%S %p', level=logging.DEBUG)
+
+
 params = {
     "token": "TELEGRAM_TOKEN",  # Telegram bot token! Ask https://t.me/BotFather to get!
     'bot_mode': "chat",  # chat, chat-restricted, notebook
@@ -30,6 +35,13 @@ class TelegramBotWrapper:
     GENERATOR_FAIL = "<GENERATION FAIL>"
     GENERATOR_EMPTY_ANSWER = "<EMPTY ANSWER>"
     UNKNOWN_TEMPLATE = "<UNKNOWN TEMPLATE>"
+    # Various predefined data
+    BTN_CONTINUE = 'Continue'
+    BTN_REGEN = 'Regen'
+    BTN_CUTOFF = 'Cutoff'
+    BTN_RESET = 'Reset'
+    BTN_DOWNLOAD = 'Download'
+    BTN_CHAR_LIST = 'Chars'
     # Supplementary structure
     users: dict = {}  # dict of User data dicts, here placed all users' session info.
     # Internal, changeable settings
@@ -44,12 +56,14 @@ class TelegramBotWrapper:
         "greeting": 'Hi',  # just greeting message from bot
     }
     default_messages_template = {  # dict of messages templates for various situations. Use _VAR_ replacement
-        "lost": "\n<MEMORY LOST!>\nSend /start or any text for new session.",  # When button refers to non-existing data
+        "mem_lost": "\n<MEMORY LOST!>\nSend /start or any text for new session.",  # When button refers to non-existing data
         "retyping": "<i>\n_NAME2_ retyping...</i>",  # added when "regenerate button" working
         "typing": "<i>\n_NAME2_ typing...</i>",  # added when generating working
-        "load_char": "<CHARACTER _NAME2_ LOADED!>\n_GREETING_.",  # When new char loaded
-        "reset": "<MEMORY RESET!>\nSend /start or any text for new session.",  # When history cleared
+        "char_loaded": "<CHARACTER _NAME2_ LOADED!>\n_GREETING_.",  # When new char loaded
+        "mem_reset": "<MEMORY RESET!>\nSend /start or any text for new session.",  # When history cleared
         "start": "<CHARACTER _NAME2_ LOADED>\nSend /start or message.",  # New conversation started (not used now)
+        "hist_to_chat": "To load history - forward message to this chat",  # download history
+        "hist_loaded": "<_NAME2_ LOADED>\n_GREETING_\n\n<LAST MESSAGE:>\n_CUSTOM_STRING_",  # load history
     }
     generation_params = {
         'max_new_tokens': 200,
@@ -104,25 +118,26 @@ class TelegramBotWrapper:
         # Set buttons default list - if chat-restricted user can't change char or get help.
         if self.bot_mode == "chat":  # chat option
             self.button = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text="▶Continue", callback_data='Continue'),
-                  InlineKeyboardButton(text="🔄Regenerate", callback_data='Regen'),
-                  InlineKeyboardButton(text="✂Cutoff", callback_data='Cutoff'),
-                  InlineKeyboardButton(text="🚫Reset", callback_data='Reset'),
-                  InlineKeyboardButton(text="🎭Chars", callback_data='Chars'),
+                [[InlineKeyboardButton(text="▶Continue", callback_data=self.BTN_CONTINUE),
+                  InlineKeyboardButton(text="🔄Regenerate", callback_data=self.BTN_REGEN),
+                  InlineKeyboardButton(text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                  InlineKeyboardButton(text="🚫Reset", callback_data=self.BTN_RESET),
+                  InlineKeyboardButton(text="💾Download", callback_data=self.BTN_DOWNLOAD),
+                  InlineKeyboardButton(text="🎭Chars", callback_data=self.BTN_CHAR_LIST),
                   ]])
             self.button_start = None
         if self.bot_mode == "chat-restricted":  # you can't change char in restricted chat mode
             self.button = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text="▶Continue", callback_data='Continue'),
-                  InlineKeyboardButton(text="🔄Regenerate", callback_data='Regen'),
-                  InlineKeyboardButton(text="✂Cutoff", callback_data='Cutoff'),
-                  InlineKeyboardButton(text="🚫Reset memory", callback_data='Reset'),
+                [[InlineKeyboardButton(text="▶Continue", callback_data=self.BTN_CONTINUE),
+                  InlineKeyboardButton(text="🔄Regenerate", callback_data=self.BTN_REGEN),
+                  InlineKeyboardButton(text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                  InlineKeyboardButton(text="🚫Reset memory", callback_data=self.BTN_RESET),
                   ]])
             self.button_start = None
         if self.bot_mode == "notebook":  # in notebook mode buttons restricted much more
             self.button = InlineKeyboardMarkup(
-                [[InlineKeyboardButton(text="▶Continue", callback_data='Continue'),
-                  InlineKeyboardButton(text="🚫Reset memory", callback_data='Reset'),
+                [[InlineKeyboardButton(text="▶Continue", callback_data=self.BTN_CONTINUE),
+                  InlineKeyboardButton(text="🚫Reset memory", callback_data=self.BTN_RESET),
                   ]])
             self.button_start = None
         # dummy obj for telegram updater
@@ -146,24 +161,39 @@ class TelegramBotWrapper:
         self.updater = Updater(token=bot_token, use_context=True)
         self.updater.dispatcher.add_handler(CommandHandler(['start', 'reset'], self.cb_get_command))
         self.updater.dispatcher.add_handler(MessageHandler(Filters.text, self.cb_get_message))
+        self.updater.dispatcher.add_handler(MessageHandler(Filters.document.mime_type("application/json"),
+                                                           self.cb_get_document))
         self.updater.dispatcher.add_handler(CallbackQueryHandler(self.cb_opt_button))
         self.updater.start_polling()
         print("Telegram bot started!", self.updater)
 
     # =============================================================================
-    # Command handlers
+    # Handlers
     def cb_get_command(self, upd: Update, context: CallbackContext):
         if upd.message.text == "/start":
             Thread(target=self.send_welcome_message, args=(upd, context)).start()
 
-    def send_welcome_message(self, upd: Update, context: CallbackContext):
-        chat_id = upd.effective_chat.id
-        self.init_user(chat_id)
-        send_text = self.def_msg("load_char", chat_id)
-        context.bot.send_message(text=send_text, chat_id=chat_id, reply_markup=self.button_start)
+    def cb_get_message(self, upd: Update, context: CallbackContext):
+        # If starts with /load_cmd - loading char!
+        if upd.message.text.startswith("/" + self.load_cmd) and self.bot_mode != "chat-restricted":
+            Thread(target=self.load_new_character, args=(upd, context)).start()
+        else:
+            Thread(target=self.tr_get_message, args=(upd, context)).start()
+
+    def cb_opt_button(self, upd: Update, context: CallbackContext):
+        Thread(target=self.tr_opt_button, args=(upd, context)).start()
+
+    def cb_get_document(self, upd: Update, context: CallbackContext):
+        Thread(target=self.load_history_from_chat_message, args=(upd, context)).start()
 
     # =============================================================================
     # Additional telegram actions
+    def send_welcome_message(self, upd: Update, context: CallbackContext):
+        chat_id = upd.effective_chat.id
+        self.init_user(chat_id)
+        send_text = self.message_template_generator("char_loaded", chat_id)
+        context.bot.send_message(text=send_text, chat_id=chat_id, reply_markup=self.button_start)
+
     def last_message_markup_clean(self, context: CallbackContext, chat_id: int):
         if chat_id in self.users:
             # delete buttons if user exist and have at least one message_id in "msg_id"
@@ -174,7 +204,7 @@ class TelegramBotWrapper:
                 except Exception as e:
                     print("last_message_markup_clean", e)
 
-    def def_msg(self, request: str, chat_id: int):
+    def message_template_generator(self, request: str, chat_id: int, custom_string=""):
         # made default message from default_messages_template or return UNKNOWN_TEMPLATE
         if request in self.default_messages_template and chat_id in self.users:
             msg = self.default_messages_template[request]
@@ -183,21 +213,22 @@ class TelegramBotWrapper:
             msg = msg.replace("_NAME2_", self.users[chat_id]["name2"])
             msg = msg.replace("_CONTEXT_", self.users[chat_id]["context"])
             msg = msg.replace("_GREETING_", self.users[chat_id]["greeting"])
+            msg = msg.replace("_CUSTOM_STRING_", custom_string)
             return msg
         else:
             return self.UNKNOWN_TEMPLATE
 
     # =============================================================================
-    # Work with history!
-    def reset_history_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-        if chat_id in self.users:
-            if len(self.users[chat_id]["msg_id"]) > 0:
-                self.last_message_markup_clean(context, chat_id)
-            self.users[chat_id]["history"] = []
-            self.users[chat_id]["user_in"] = []
-            self.users[chat_id]["msg_id"] = []
-        send_text = self.def_msg("reset", chat_id)
+    # Work with history! Init/load/save functions
+    def load_new_character(self, upd: Update, context: CallbackContext):
+        chat_id = upd.message.chat.id
+        self.last_message_markup_clean(context, chat_id)
+        char_list = self.get_characters_files_list()
+        char_file = char_list[int(upd.message.text.split(self.load_cmd)[-1].strip().lstrip())]
+        self.users[chat_id] = self.load_char_file(char_file=char_file)
+        if exists(f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id]["name2"]}.json'):
+            self.load_user_history(chat_id, self.users[chat_id]["name2"])
+        send_text = self.message_template_generator("char_loaded", chat_id)
         context.bot.send_message(text=send_text, chat_id=chat_id)
 
     def get_characters_files_list(self) -> list:
@@ -210,33 +241,22 @@ class TelegramBotWrapper:
                 char_list.append(file_name)
         return char_list
 
-    def load_char_message(self, upd: Update, context: CallbackContext):
-        chat_id = upd.message.chat.id
-        self.last_message_markup_clean(context, chat_id)
-        char_list = self.get_characters_files_list()
-        char_file = char_list[int(upd.message.text.split(self.load_cmd)[-1].strip().lstrip())]
-        self.users[chat_id] = self.load_char_file(char_file=char_file)
-        if exists(f'{self.history_dir_path}/{chat_id}{self.users[chat_id]["name2"]}.json'):
-            self.load_user_history(chat_id, self.users[chat_id]["name2"])
-        send_text = self.def_msg("load_char", chat_id)
-        context.bot.send_message(text=send_text, chat_id=chat_id)
-
     def init_user(self, chat_id):
         if chat_id not in self.users:
             # If user not exist - first load default char
             self.users[chat_id] = self.load_char_file(char_file=self.default_char_json)
             # If exist default history file (ID.json) - load it and overwrite default char
-            if exists(f'{self.history_dir_path}/{chat_id}.json'):
+            if exists(f'{self.history_dir_path}/{str(chat_id)}.json'):
                 self.load_user_history(chat_id)
             else:
                 # If no default history file, try to load default char history file (ID-CHARMANE.json)
-                if exists(f'{self.history_dir_path}/{chat_id}{self.users[chat_id]["name2"]}.json'):
+                if exists(f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id]["name2"]}.json'):
                     self.load_user_history(chat_id, self.users[chat_id]["name2"])
 
     def load_user_history(self, chat_id, name2=""):
         try:
-            if exists(f'{self.history_dir_path}/{chat_id}{name2}.json'):
-                user_file_path = Path(f'{self.history_dir_path}/{chat_id}{name2}.json')
+            if exists(f'{self.history_dir_path}/{str(chat_id)}{name2}.json'):
+                user_file_path = Path(f'{self.history_dir_path}/{str(chat_id)}{name2}.json')
                 with open(user_file_path, 'r', encoding='utf-8') as user_file:
                     data = user_file.read()
                 self.users[chat_id] = json.loads(data)
@@ -244,32 +264,47 @@ class TelegramBotWrapper:
             print("user_load", e)
 
     def save_user_history(self, chat_id, chat_name=""):
+        """
+        Save two history file -user+char and default user history files and return their path
+        :param chat_id: user chat_id
+        :param chat_name: char name (or additional data)
+        :return: user_char_file_path, default_user_file_path
+        """
         if chat_id in self.users:
             # Save ID-CHARMANE.json file, separated history for various characters.
-            user_file_path = Path(f'{self.history_dir_path}/{chat_id}{chat_name}.json')
-            with open(user_file_path, 'w', encoding='utf-8') as user_file:
+            user_char_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}{chat_name}.json'))
+            with open(user_char_file_path, 'w', encoding='utf-8') as user_file:
                 user_file.write(json.dumps(self.users[chat_id]))
             # Save ID.json file, current history. File for default loading.
-            default_user_file_path = Path(f'{self.history_dir_path}/{chat_id}.json')
+            default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
             with open(default_user_file_path, 'w', encoding='utf-8') as user_file:
                 user_file.write(json.dumps(self.users[chat_id]))
+            return user_char_file_path, default_user_file_path
+        return None, None
+
+    def load_history_from_chat_message(self, upd: Update, context: CallbackContext):
+        print(upd)
+        chat_id = upd.message.chat.id
+        history_from_chat_file = upd.message.document.get_file()
+        default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
+        history_from_chat_file.download(default_user_file_path)
+        self.load_user_history(chat_id)
+        if len(self.users[chat_id]["history"]) > 0:
+            last_message = self.users[chat_id]["history"][-1]
+        else:
+            last_message = "<no message in history>"
+        send_text = self.message_template_generator("hist_loaded", chat_id, last_message)
+        context.bot.send_message(text=send_text, chat_id=chat_id)
 
     # =============================================================================
     # Text message handler
-    def cb_get_message(self, upd: Update, context: CallbackContext):
-        Thread(target=self.tr_get_message, args=(upd, context)).start()
-
     def tr_get_message(self, upd: Update, context: CallbackContext):
-        # If starts with /load_cmd - loading char!
-        if upd.message.text.startswith("/" + self.load_cmd) and self.bot_mode != "chat-restricted":
-            self.load_char_message(upd, context)
-            return True
         # If message is not starts char loading - continue generating
         user_text = upd.message.text
         chat_id = upd.message.chat.id
         self.init_user(chat_id)  # if no such user - load char
         # send "typing" message, generate answer, replace "typing" to answer
-        send_text = self.def_msg("typing", chat_id)
+        send_text = self.message_template_generator("typing", chat_id)
         message = context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
         last_msg = message.message_id
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
@@ -281,10 +316,7 @@ class TelegramBotWrapper:
         return True
 
     # =============================================================================
-    # button handler
-    def cb_opt_button(self, upd: Update, context: CallbackContext):
-        Thread(target=self.tr_opt_button, args=(upd, context)).start()
-
+    # button
     def tr_opt_button(self, upd: Update, context: CallbackContext):
         query = upd.callback_query
         query.answer()
@@ -295,57 +327,23 @@ class TelegramBotWrapper:
         if chat_id not in self.users:  # if no history for this message - do not answer, del buttons
             self.init_user(chat_id)
         if msg_id not in self.users[chat_id]["msg_id"]:  # if msg not in message history - do not answer, del buttons
-            send_text = msg_text + self.def_msg("lost", chat_id)
+            send_text = msg_text + self.message_template_generator("mem_lost", chat_id)
             context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg_id, reply_markup=None)
-        elif option == "Reset":  # if no history for this message - do not answer, del buttons
+        elif option == self.BTN_RESET:  # if no history for this message - do not answer, del buttons
             self.reset_history_button(upd=upd, context=context)
             self.save_user_history(chat_id, self.users[chat_id]["name2"])
-        elif option == "Regen":  # Regenerate is like others generating, but delete previous bot answer
-            # add pretty "retyping" to message text
-            send_text = msg_text + self.def_msg("retyping", chat_id)
-            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg_id, parse_mode="HTML")
-            # remove last bot answer, read and remove last user reply
-            self.users[chat_id]["history"].pop()
-            self.users[chat_id]["history"].pop()
-            user_in = self.users[chat_id]["user_in"].pop()
-            # get answer and replace message text!
-            answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
-            print(user_in)
-            context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=msg_id, reply_markup=self.button)
+        elif option == self.BTN_CONTINUE:  # continue previous message is like others generating, but with "" message
+            self.continue_message_button(upd=upd, context=context)
             self.save_user_history(chat_id, self.users[chat_id]["name2"])
-        elif option == "Continue":  # continue previous message is like others generating, but with "" user message
-            # send "typing"
-            send_text = self.def_msg("typing", chat_id)
-            message = context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
-            last_msg = message.message_id
-            # get answer and replace message text!
-            answer = self.generate_answer(user_in='', chat_id=chat_id)
-            context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=last_msg, reply_markup=self.button)
-            self.last_message_markup_clean(context, chat_id)
-            self.users[chat_id]["msg_id"].append(message.message_id)
+        elif option == self.BTN_REGEN:  # Regenerate is like others generating, but delete previous bot answer
+            self.regenerate_message_button(upd=upd, context=context)
             self.save_user_history(chat_id, self.users[chat_id]["name2"])
-        elif option == "Cutoff":
-            if chat_id in self.users:
-                # Edit last msg_id (strict lines)
-                send_text = "<s>" + self.users[chat_id]["history"][-1] + "</s>"
-                last_msg = self.users[chat_id]["msg_id"][-1]
-                context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=last_msg, parse_mode="HTML")
-                self.users[chat_id]["history"].pop()
-                self.users[chat_id]["history"].pop()
-                self.users[chat_id]["user_in"].pop()
-                self.users[chat_id]["msg_id"].pop()
-                # if there is previous message - add buttons to previous message
-                if len(self.users[chat_id]["msg_id"]) > 0:
-                    send_text = self.users[chat_id]["history"][-1]
-                    message_id = self.users[chat_id]["msg_id"][-1]
-                    context.bot.editMessageText(text=send_text, chat_id=chat_id,
-                                                message_id=message_id, reply_markup=self.button)
-                self.save_user_history(chat_id, self.users[chat_id]["name2"])
-            else:
-                send_text = msg_text + "\n<HISTORY LOST>"
-                context.bot.editMessageText(text=send_text, chat_id=chat_id,
-                                            message_id=msg_id, reply_markup=self.button)
-        elif option == "Chars":
+        elif option == self.BTN_CUTOFF:
+            self.cutoff_message_button(upd=upd, context=context)
+            self.save_user_history(chat_id, self.users[chat_id]["name2"])
+        elif option == self.BTN_DOWNLOAD:
+            self.send_history_to_chat_button(upd=upd, context=context)
+        elif option == self.BTN_CHAR_LIST:
             char_list = self.get_characters_files_list()
             to_send = []
             for i, char in enumerate(char_list):
@@ -357,6 +355,78 @@ class TelegramBotWrapper:
             if len(to_send) > 0:
                 send_text = "\n".join(to_send)
                 context.bot.send_message(text=send_text, chat_id=chat_id)
+
+    def continue_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        # send "typing"
+        send_text = self.message_template_generator("typing", chat_id)
+        message = context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
+        last_msg = message.message_id
+        # get answer and replace message text!
+        answer = self.generate_answer(user_in='', chat_id=chat_id)
+        context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=last_msg, reply_markup=self.button)
+        self.last_message_markup_clean(context, chat_id)
+        self.users[chat_id]["msg_id"].append(message.message_id)
+
+    def regenerate_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        msg_text = upd.callback_query.message.text
+        msg_id = upd.callback_query.message.message_id
+        # add pretty "retyping" to message text
+        send_text = msg_text + self.message_template_generator("retyping", chat_id)
+        context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg_id, parse_mode="HTML")
+        # remove last bot answer, read and remove last user reply
+        self.users[chat_id]["history"].pop()
+        self.users[chat_id]["history"].pop()
+        user_in = self.users[chat_id]["user_in"].pop()
+        # get answer and replace message text!
+        answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
+        print(user_in)
+        context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=msg_id, reply_markup=self.button)
+
+    def cutoff_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        msg_text = upd.callback_query.message.text
+        msg_id = upd.callback_query.message.message_id
+        if chat_id in self.users:
+            # Edit last msg_id (strict lines)
+            send_text = "<s>" + self.users[chat_id]["history"][-1] + "</s>"
+            last_msg = self.users[chat_id]["msg_id"][-1]
+            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=last_msg, parse_mode="HTML")
+            self.users[chat_id]["history"].pop()
+            self.users[chat_id]["history"].pop()
+            self.users[chat_id]["user_in"].pop()
+            self.users[chat_id]["msg_id"].pop()
+            # if there is previous message - add buttons to previous message
+            if len(self.users[chat_id]["msg_id"]) > 0:
+                send_text = self.users[chat_id]["history"][-1]
+                message_id = self.users[chat_id]["msg_id"][-1]
+                context.bot.editMessageText(text=send_text, chat_id=chat_id,
+                                            message_id=message_id, reply_markup=self.button)
+            self.save_user_history(chat_id, self.users[chat_id]["name2"])
+        else:
+            send_text = msg_text + "\n<HISTORY LOST>"
+            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg_id, reply_markup=self.button)
+
+    def send_history_to_chat_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        if chat_id in self.users:
+            default_user_file_path, _ = self.save_user_history(chat_id)
+            with open(default_user_file_path, 'r', encoding='utf-8') as default_user_file:
+                send_caption = self.message_template_generator("hist_to_chat", chat_id)
+                context.bot.send_document(caption=send_caption,document=default_user_file, chat_id=chat_id,
+                                          filename=self.users[chat_id]["name2"] + ".json")
+
+    def reset_history_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        if chat_id in self.users:
+            if len(self.users[chat_id]["msg_id"]) > 0:
+                self.last_message_markup_clean(context, chat_id)
+            self.users[chat_id]["history"] = []
+            self.users[chat_id]["user_in"] = []
+            self.users[chat_id]["msg_id"] = []
+        send_text = self.message_template_generator("mem_reset", chat_id)
+        context.bot.send_message(text=send_text, chat_id=chat_id)
 
     # =============================================================================
     # answer generator
@@ -423,7 +493,7 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # load characters char_file from ./characters
-    def load_char_file(self, char_file:str):
+    def load_char_file(self, char_file: str):
         # Copy default user data. If reading will fail - return default user data
         user = deepcopy(self.default_users_data.copy())
         try:
@@ -435,9 +505,12 @@ class TelegramBotWrapper:
                 else:
                     data = yaml.safe_load(user_file.read())
             #  load persona and scenario
-            if 'you_name' in data: user["name1"] = data['you_name']
-            if 'char_name' in data: user["name2"] = data['char_name']
-            if 'name' in data: user["name2"] = data['name']
+            if 'you_name' in data:
+                user["name1"] = data['you_name']
+            if 'char_name' in data:
+                user["name2"] = data['char_name']
+            if 'name' in data:
+                user["name2"] = data['name']
             if 'char_persona' in data:
                 user["context"] += f"{data['char_name']}'s Persona: {data['char_persona'].strip()}\n"
             if 'world_scenario' in data:
