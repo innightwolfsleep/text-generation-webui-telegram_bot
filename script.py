@@ -539,10 +539,10 @@ class TelegramBotWrapper:
 
     @staticmethod
     def replace_template_in_context(s: str, user: dict) -> str:
-        s = s.replace('{{user}}', user["name1"])
         s = s.replace('{{char}}', user["name2"])
-        s = s.replace('<USER>', user["name2"])
-        s = s.replace('<BOT>', user["name1"])
+        s = s.replace('{{user}}', user["name1"])
+        s = s.replace('<BOT>', user["name2"])
+        s = s.replace('<USER>', user["name1"])
         return s
 
 
