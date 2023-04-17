@@ -88,6 +88,7 @@ class TelegramBotWrapper:
         'chat_prompt_size': 1024,
         'chat_generation_attempts': 1,
         'stop_at_newline': False,
+        'skip_special_tokens': True,
     }
 
     def __init__(self,
