@@ -18,14 +18,11 @@ from telegram.ext import MessageHandler
 from telegram.ext import CallbackQueryHandler
 from telegram.ext import Updater
 
-#import logging
-#logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-# datefmt='%Y.%m.%d %I:%M:%S %p', level=logging.DEBUG)
-
 
 params = {
     "token": "TELEGRAM_TOKEN",  # Telegram bot token! Ask https://t.me/BotFather to get!
     'bot_mode': "chat",  # chat, chat-restricted, notebook
+    'cutoff_mode': "delete",  # delete (remove cut text) or cross (cross cut text)
     'character_to_load': "Example.yaml",  # character json file from text-generation-webui/characters
 }
 
@@ -36,6 +33,8 @@ class TelegramBotWrapper:
     GENERATOR_EMPTY_ANSWER = "<EMPTY ANSWER>"
     UNKNOWN_TEMPLATE = "<UNKNOWN TEMPLATE>"
     # Various predefined data
+    CUTOFF_DELETE = "delete"
+    CUTOFF_STRICT = "cross"
     BTN_CONTINUE = 'Continue'
     BTN_REGEN = 'Regen'
     BTN_CUTOFF = 'Cutoff'
@@ -94,6 +93,7 @@ class TelegramBotWrapper:
     def __init__(self,
                  bot_mode="chat",  # bot mode - chat, chat-restricted, notebook
                  characters_dir_path="characters",  # there stored characters files
+                 cutoff_mode="delete",  # delete (remove cut text) or cross (cross cut text)
                  default_char_json="Example.json",  # name of default char.json file
                  history_dir_path="extensions/telegram_bot/history",  # there stored users history
                  default_token_file_path="extensions/telegram_bot/telegram_token.txt",  # there stored tg token
@@ -115,6 +115,7 @@ class TelegramBotWrapper:
         self.bot_mode = bot_mode
         self.default_char_json = default_char_json
         self.load_cmd = "load"
+        self.cutoff_mode = cutoff_mode
         # Set buttons default list - if chat-restricted user can't change char or get help.
         if self.bot_mode == "chat":  # chat option
             self.button = InlineKeyboardMarkup(
@@ -204,7 +205,7 @@ class TelegramBotWrapper:
                 except Exception as e:
                     print("last_message_markup_clean", e)
 
-    def message_template_generator(self, request: str, chat_id: int, custom_string=""):
+    def message_template_generator(self, request: str, chat_id: int, custom_string="") -> str:
         # made default message from default_messages_template or return UNKNOWN_TEMPLATE
         if request in self.default_messages_template and chat_id in self.users:
             msg = self.default_messages_template[request]
@@ -392,7 +393,10 @@ class TelegramBotWrapper:
             # Edit last msg_id (strict lines)
             send_text = "<s>" + self.users[chat_id]["history"][-1] + "</s>"
             last_msg = self.users[chat_id]["msg_id"][-1]
-            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=last_msg, parse_mode="HTML")
+            if self.cutoff_mode == self.CUTOFF_STRICT:
+                context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=last_msg, parse_mode="HTML")
+            else:
+                context.bot.deleteMessage(chat_id=chat_id, message_id=last_msg)
             self.users[chat_id]["history"].pop()
             self.users[chat_id]["history"].pop()
             self.users[chat_id]["user_in"].pop()
@@ -517,10 +521,6 @@ class TelegramBotWrapper:
                 user["context"] += f"Scenario: {data['world_scenario'].strip()}\n"
             #  add dialogue examples
             if 'example_dialogue' in data:
-                data['example_dialogue'] = data['example_dialogue'].replace('{{user}}', user["name1"])
-                data['example_dialogue'] = data['example_dialogue'].replace('{{char}}', user["name2"])
-                data['example_dialogue'] = data['example_dialogue'].replace('<USER>', user["name1"])
-                data['example_dialogue'] = data['example_dialogue'].replace('<BOT>', user["name2"])
                 user["context"] += f"{data['example_dialogue'].strip()}\n"
             #  add <START>, add char greeting
             user["context"] += f"{user['context'].strip()}\n<START>\n"
@@ -530,15 +530,26 @@ class TelegramBotWrapper:
             if 'greeting' in data:
                 user["context"] += '\n' + data['greeting'].strip()
                 user["greeting"] = data['greeting'].strip()
+            user["context"] = self.replace_template_in_context(user["context"], user)
+            user["greeting"] = self.replace_template_in_context(user["greeting"], user)
         except Exception as e:
             print("load_char_json_file", e)
         finally:
             return user
 
+    @staticmethod
+    def replace_template_in_context(s: str, user: dict) -> str:
+        s = s.replace('{{user}}', user["name1"])
+        s = s.replace('{{char}}', user["name2"])
+        s = s.replace('<USER>', user["name2"])
+        s = s.replace('<BOT>', user["name1"])
+        return s
+
 
 def run_server():
     # example with char load context:
-    tg_server = TelegramBotWrapper(bot_mode=params['bot_mode'], default_char_json=params['character_to_load'])
+    tg_server = TelegramBotWrapper(bot_mode=params['bot_mode'], default_char_json=params['character_to_load'],
+                                   cutoff_mode=params["cutoff_mode"])
     tg_server.run_telegram_bot()  # by default - read token from extensions/telegram_bot/telegram_token.txt
 
 
