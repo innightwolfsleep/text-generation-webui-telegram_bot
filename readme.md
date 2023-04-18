@@ -10,6 +10,10 @@ REQUIREMENTS:
 
 HOW TO INSTALL:
 1) clone this repo to "text-generation-webui\extensions"
+```
+cd text-generation-webui
+git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot extensions\telegram_bot
+```
 2) install "python-telegram-bot==13.15" module to your textgen envivroment. (Easiest way is run "webui.bat" with additional string "call pip install -r extensions\telegram_bot\requirements.txt" before "call python server.py"
 
 HOW TO USE:
