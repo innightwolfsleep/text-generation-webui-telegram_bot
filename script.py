@@ -244,7 +244,9 @@ class TelegramBotWrapper:
 
         self.updater = Updater(token=bot_token, use_context=True)
         self.updater.dispatcher.add_handler(
-            CommandHandler(["start", "reset"], self.cb_get_command))
+            CommandHandler("start", self.cb_start_command)),
+        self.updater.dispatcher.add_handler(
+            CommandHandler("reset", self.reset_history_button))
         self.updater.dispatcher.add_handler(
             MessageHandler(Filters.text, self.cb_get_message))
         self.updater.dispatcher.add_handler(
@@ -258,10 +260,9 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # Handlers
-    def cb_get_command(self, upd, context):
-        message_text = upd.message.text
-        if message_text == "/start":
-            Thread(target=self.send_welcome_message, args=(upd, context)).start()
+    def cb_start_command(self, upd, context):
+        Thread(target=self.send_welcome_message,
+               args=(upd, context)).start()
 
     def cb_get_message(self, upd, context):
         message_text = upd.message.text
@@ -565,11 +566,13 @@ class TelegramBotWrapper:
                 filename=self.users[chat_id].name2 + ".json")
 
     def reset_history_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-        user = self.users[chat_id]
+        # check if it is a callback_query or a command
+        chat_id = upd.callback_query.message.chat.id if upd.callback_query else upd.message.chat.id
 
         if chat_id not in self.users:
             return
+
+        user = self.users[chat_id]
 
         if user.msg_id:
             self.last_message_markup_clean(context, chat_id)
