@@ -174,7 +174,7 @@ class TelegramBotWrapper:
         self.cutoff_mode = cutoff_mode
         # Set load command
         self.load_cmd = "load"
-        # Bot message open/close html tags
+        # Bot message open/close html tags. Set ["", ""] to disable.
         self.html_tag = ["<pre>", "</pre>"]
         # Set buttons
         self.button_start = None
@@ -288,7 +288,8 @@ class TelegramBotWrapper:
         send_text = self.message_template_generator("char_loaded", chat_id)
         context.bot.send_message(
             text=send_text, chat_id=chat_id,
-            reply_markup=self.button_start)
+            reply_markup=self.button_start,
+            parse_mode="HTML")
 
     def last_message_markup_clean(self, context: CallbackContext, chat_id: int):
         if (chat_id in self.users and
@@ -446,10 +447,12 @@ class TelegramBotWrapper:
         if chat_id not in self.users:
             self.init_check_user(chat_id)
         if msg_id not in self.users[chat_id].msg_id:
-            send_text = msg_text + self.message_template_generator("mem_lost", chat_id)
+            send_text = self.html_tag[0] + msg_text + self.html_tag[1]
+            send_text += self.message_template_generator("mem_lost", chat_id)
             context.bot.editMessageText(
                 text=send_text, chat_id=chat_id,
                 message_id=msg_id,
+                parse_mode="HTML",
                 reply_markup=None)
         else:
             self.handle_option(option, upd, context, chat_id)
@@ -532,40 +535,33 @@ class TelegramBotWrapper:
     def cutoff_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
-        if chat_id not in self.users:
-            send_text = msg.text + "\n<HISTORY LOST>"
+        user = self.users[chat_id]
+        send_text = f"<s>{user.history[-1]}</s>"
+
+        # Edit last message ID (strict lines)
+        last_msg_id = user.msg_id[-1]
+        if self.cutoff_mode == self.CUTOFF_STRICT:
             context.bot.editMessageText(
                 text=send_text, chat_id=chat_id,
-                message_id=msg.message_id,
-                reply_markup=self.button)
+                message_id=last_msg_id,
+                parse_mode="HTML")
         else:
-            user = self.users[chat_id]
-            send_text = f"<s>{user.history[-1]}</s>"
+            context.bot.deleteMessage(
+                chat_id=chat_id, message_id=last_msg_id)
 
-            # Edit last message ID (strict lines)
-            last_msg_id = user.msg_id[-1]
-            if self.cutoff_mode == self.CUTOFF_STRICT:
-                context.bot.editMessageText(
-                    text=send_text, chat_id=chat_id,
-                    message_id=last_msg_id,
-                    parse_mode="HTML")
-            else:
-                context.bot.deleteMessage(
-                    chat_id=chat_id, message_id=last_msg_id)
+        # Remove last message and bot answer from history
+        user.pop()
 
-            # Remove last message and bot answer from history
-            user.pop()
-
-            # If there is previous message - add buttons to previous message
-            if user.msg_id:
-                send_text = self.html_tag[0] + user.history[-1] + self.html_tag[1]
-                message_id = user.msg_id[-1]
-                context.bot.editMessageText(
-                    text=send_text, chat_id=chat_id,
-                    message_id=message_id,
-                    reply_markup=self.button,
-                    parse_mode="HTML")
-            self.save_user_history(chat_id, user.name2)
+        # If there is previous message - add buttons to previous message
+        if user.msg_id:
+            send_text = self.html_tag[0] + user.history[-1] + self.html_tag[1]
+            message_id = user.msg_id[-1]
+            context.bot.editMessageText(
+                text=send_text, chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=self.button,
+                parse_mode="HTML")
+        self.save_user_history(chat_id, user.name2)
 
     def download_json_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -583,7 +579,10 @@ class TelegramBotWrapper:
 
     def reset_history_button(self, upd: Update, context: CallbackContext):
         # check if it is a callback_query or a command
-        chat_id = upd.callback_query.message.chat.id if upd.callback_query else upd.message.chat.id
+        if upd.callback_query:
+            chat_id = upd.callback_query.message.chat.id
+        else:
+            chat_id = upd.message.chat.id
 
         if chat_id not in self.users:
             return
@@ -596,7 +595,7 @@ class TelegramBotWrapper:
         user.reset_history()
 
         send_text = self.message_template_generator("mem_reset", chat_id)
-        context.bot.send_message(chat_id=chat_id, text=send_text)
+        context.bot.send_message(chat_id=chat_id, text=send_text, parse_mode="HTML")
 
     # =============================================================================
     # answer generator
