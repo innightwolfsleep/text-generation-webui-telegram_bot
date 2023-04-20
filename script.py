@@ -46,11 +46,11 @@ class TelegramBotWrapper:
         "mem_lost": "<b>MEMORY LOST!</b>\nSend /start or any text for new session.",  # refers to non-existing
         "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
         "typing": "<i>_NAME2_ typing...</i>",  # added when generating working
-        "char_loaded": "CHARACTER _NAME2_ LOADED!\n<pre>_GREETING_</pre>",  # When new char loaded
+        "char_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_ ",  # When new char loaded
         "mem_reset": "MEMORY RESET!\nSend /start or any text for new session.",  # When history cleared
-        "start": "CHARACTER _NAME2_ LOADED\nSend /start or message.",  # New conversation started (not used now)
         "hist_to_chat": "To load history - forward message to this chat",  # download history
-        "hist_loaded": "_NAME2_ LOADED\n<pre>_GREETING_</pre>\n\nLAST MESSAGE:\n<pre>_CUSTOM_STRING_</pre>",  # load history
+        "hist_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_"
+                       "\n\nLAST MESSAGE:\n_OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # load history
     }
     generation_params = {
         'max_new_tokens': 200,
@@ -174,6 +174,8 @@ class TelegramBotWrapper:
         self.cutoff_mode = cutoff_mode
         # Set load command
         self.load_cmd = "load"
+        # Bot message open/close html tags
+        self.html_tag = ["<pre>", "</pre>"]
         # Set buttons
         self.button_start = None
         if self.bot_mode == self.MODE_CHAT:
@@ -310,6 +312,8 @@ class TelegramBotWrapper:
             msg = msg.replace("_CONTEXT_", self.users[chat_id].context)
             msg = msg.replace("_GREETING_", self.users[chat_id].greeting)
             msg = msg.replace("_CUSTOM_STRING_", custom_string)
+            msg = msg.replace("_OPEN_TAG_", self.html_tag[0])
+            msg = msg.replace("_CLOSE_TAG_", self.html_tag[1])
             return msg
         else:
             print(request, custom_string)
@@ -416,8 +420,7 @@ class TelegramBotWrapper:
             parse_mode="HTML")
         # Generate answer and replace "typing" message with it
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
-        # Add <pre> tag around answer text
-        answer = "<pre>" + answer + "</pre>"
+        answer = self.html_tag[0] + answer + self.html_tag[1]
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=message.message_id,
@@ -492,7 +495,7 @@ class TelegramBotWrapper:
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in='', chat_id=chat_id)
-        answer = "<pre>" + answer + "</pre>"
+        answer = self.html_tag[0] + answer + self.html_tag[1]
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=message.message_id,
@@ -505,7 +508,7 @@ class TelegramBotWrapper:
         msg = upd.callback_query.message
         user = self.users[chat_id]
         # add pretty "retyping" to message text
-        send_text = "<pre>" + msg.text + "</pre>"
+        send_text = self.html_tag[0] + msg.text + self.html_tag[1]
         send_text += self.message_template_generator('retyping', chat_id)
         context.bot.editMessageText(
             text=send_text, chat_id=chat_id,
@@ -517,7 +520,7 @@ class TelegramBotWrapper:
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
-        answer = "<pre>" + answer + "</pre>"
+        answer = self.html_tag[0] + answer + self.html_tag[1]
 
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
@@ -555,7 +558,7 @@ class TelegramBotWrapper:
 
             # If there is previous message - add buttons to previous message
             if user.msg_id:
-                send_text = "<pre>" + user.history[-1] + "</pre>"
+                send_text = self.html_tag[0] + user.history[-1] + self.html_tag[1]
                 message_id = user.msg_id[-1]
                 context.bot.editMessageText(
                     text=send_text, chat_id=chat_id,
