@@ -412,9 +412,12 @@ class TelegramBotWrapper:
             parse_mode="HTML")
         # Generate answer and replace "typing" message with it
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
+        # Add <pre> tag around answer text
+        answer = "<pre>" + answer + "</pre>"
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=message.message_id,
+            parse_mode="HTML",
             reply_markup=self.button)
         # Clear buttons on last message (if they exist in current thread)
         self.last_message_markup_clean(context, chat_id)
