@@ -2,11 +2,14 @@ from threading import Thread, Lock
 from pathlib import Path
 import json
 import yaml
+import time
+import server
 from os import listdir
 from os.path import exists
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandler, CallbackQueryHandler, Updater
 from modules.text_generation import generate_reply
+from modules import shared
 from typing import Dict
 
 params = {
@@ -172,8 +175,6 @@ class TelegramBotWrapper:
         self.default_char_json = default_char_json
         # Set cutoff mode
         self.cutoff_mode = cutoff_mode
-        # Set load command
-        self.load_cmd = "load"
         # Bot message open/close html tags. Set ["", ""] to disable.
         self.html_tag = ["<pre>", "</pre>"]
         # Set buttons
@@ -250,6 +251,10 @@ class TelegramBotWrapper:
         self.updater.dispatcher.add_handler(
             CommandHandler("reset", self.reset_history_button))
         self.updater.dispatcher.add_handler(
+            CommandHandler("models", self.get_models))
+        self.updater.dispatcher.add_handler(
+            CommandHandler("chars", self.get_character_list))
+        self.updater.dispatcher.add_handler(
             MessageHandler(Filters.text, self.cb_get_message))
         self.updater.dispatcher.add_handler(
             MessageHandler(Filters.document.mime_type("application/json"),
@@ -267,12 +272,7 @@ class TelegramBotWrapper:
                args=(upd, context)).start()
 
     def cb_get_message(self, upd, context):
-        message_text = upd.message.text
-        if (message_text.startswith(f"/{self.load_cmd}") and
-                self.bot_mode not in [self.MODE_CHAT_R, self.MODE_PERSONA]):
-            Thread(target=self.load_character_command, args=(upd, context)).start()
-        else:
-            Thread(target=self.tr_get_message, args=(upd, context)).start()
+        Thread(target=self.tr_get_message, args=(upd, context)).start()
 
     def cb_opt_button(self, upd, context):
         Thread(target=self.tr_opt_button, args=(upd, context)).start()
@@ -390,11 +390,10 @@ class TelegramBotWrapper:
     # =============================================================================
     # Message handler
     def load_character_command(self, upd: Update, context: CallbackContext):
-        chat_id = upd.message.chat.id
-        self.init_check_user(chat_id)
+        query = upd.callback_query
         char_list = self.parse_characters_dir()
-        char_file = char_list[int(upd.message.text.split(
-            self.load_cmd)[-1].strip().lstrip())]
+        char_file = char_list[int(query.data.split(':')[1])]
+        chat_id = query.message.chat_id
         self.users[chat_id] = self.load_character_file(char_file=char_file)
         #  If there was conversation with this char - load history
         user_char_history_path = f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id].name2}.json'
@@ -405,9 +404,26 @@ class TelegramBotWrapper:
         else:
             send_text = self.message_template_generator("char_loaded", chat_id)
         self.last_message_markup_clean(context, chat_id)
-        context.bot.send_message(
-            text=send_text, chat_id=chat_id,
-            parse_mode="HTML")
+        context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        context.bot.send_message(chat_id=chat_id, text=send_text, reply_markup=None)
+
+    def model_button_click(self, upd: Update, context: CallbackContext):
+        query = upd.callback_query
+        model_list = server.get_available_models()
+        model_file = model_list[int(query.data.split(':')[1])]
+        try:
+            context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+            message = context.bot.send_message(chat_id=upd.effective_chat.id, text="<b>Loading Model. 🪄</b>", parse_mode="HTML")
+            server.unload_model()
+            shared.model_name = model_file
+            if model_file != '':
+                shared.model, shared.tokenizer = server.load_model(shared.model_name)
+            while server.load_model is None:
+                time.sleep(1)
+            context.bot.edit_message_text(chat_id=message.chat_id, message_id=message.message_id, text="<b>Model Loaded. ✅</b>", parse_mode="HTML")
+        except Exception as e:
+            print("model button error: ", e)
+            context.bot.edit_message_text(chat_id=message.chat_id, message_id=message.message_id, text="<b>Error. ⛔</b>", parse_mode="HTML")
 
     def tr_get_message(self, upd: Update, context: CallbackContext):
         # Extract user input and chat ID
@@ -439,26 +455,29 @@ class TelegramBotWrapper:
     # button
     def tr_opt_button(self, upd: Update, context: CallbackContext):
         query = upd.callback_query
-        query.answer()
-        chat_id = query.message.chat.id
-        msg_id = query.message.message_id
-        msg_text = query.message.text
-        option = query.data
-        if chat_id not in self.users:
-            self.init_check_user(chat_id)
-        if msg_id not in self.users[chat_id].msg_id:
-            send_text = self.html_tag[0] + msg_text + self.html_tag[1]
-            send_text += self.message_template_generator("mem_lost", chat_id)
-            context.bot.editMessageText(
-                text=send_text, chat_id=chat_id,
-                message_id=msg_id,
-                parse_mode="HTML",
-                reply_markup=None)
+        if query.data.startswith('CHARACTER_SELECTION:'):
+            self.load_character_command(upd=upd, context=context)
+        elif query.data.startswith('MODEL_SELECTION:'):
+            self.model_button_click(upd=upd, context=context)
         else:
-            self.handle_option(option, upd, context, chat_id)
-            self.save_user_history(chat_id, self.users[chat_id].name2)
+            query.answer()
+            chat_id = query.message.chat.id
+            msg_id = query.message.message_id
+            msg_text = query.message.text
+            option = query.data
+            if chat_id not in self.users:
+                self.init_check_user(chat_id)
+            if msg_id not in self.users[chat_id].msg_id:
+                send_text = msg_text + self.message_template_generator("mem_lost", chat_id)
+                context.bot.editMessageText(
+                    text=send_text, chat_id=chat_id,
+                    message_id=msg_id,
+                    reply_markup=None)
+            else:
+                self.handle_option(option, upd, context)
+                self.save_user_history(chat_id, self.users[chat_id].name2)
 
-    def handle_option(self, option, upd, context, chat_id):
+    def handle_option(self, option, upd, context):
         if option == self.BTN_RESET:
             self.reset_history_button(upd=upd, context=context)
         elif option == self.BTN_CONTINUE:
@@ -470,21 +489,29 @@ class TelegramBotWrapper:
         elif option == self.BTN_DOWNLOAD:
             self.download_json_button(upd=upd, context=context)
         elif option == self.BTN_CHAR_LIST:
-            self.get_characters_list(chat_id, context)
+            self.get_characters_list(upd=upd, context=context)
 
-    def get_characters_list(self, chat_id, context):
+    def get_character_list(self, upd: Update, context: CallbackContext):
         char_list = self.parse_characters_dir()
-        to_send = []
-        for i, char in enumerate(char_list):
-            to_send.append(
-                f"/{self.load_cmd}{i} {char.replace('.json', '').replace('.yaml', '')}")
-            if i % 50 == 0 and i != 0:
-                send_text = "\n".join(to_send)
-                context.bot.send_message(text=send_text, chat_id=chat_id)
-                to_send = []
-        if to_send:
-            send_text = "\n".join(to_send)
-            context.bot.send_message(text=send_text, chat_id=chat_id)
+        keyboard = [[InlineKeyboardButton(item.replace('.json', '').replace('.yaml', ''), callback_data=f'CHARACTER_SELECTION:{index}')] for index, item in enumerate(char_list)]
+        # Create an InlineKeyboardMarkup object with the list of buttons
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Send a message with the list of items and the keyboard
+        if upd.callback_query:
+            upd.callback_query.message.reply_text("<b>Select a character:<b>", reply_markup=reply_markup)
+        else:
+            context.bot.send_message(text="<b>Select a character:</b>", chat_id=upd.message.chat.id, reply_markup=reply_markup, parse_mode="HTML")
+
+    def get_models(self, upd: Update, context: CallbackContext):
+        model_list = server.get_available_models()
+        keyboard = [[InlineKeyboardButton(item.replace('.json', '').replace('.yaml', ''), callback_data=f'MODEL_SELECTION:{index}')] for index, item in enumerate(model_list)]
+        # Create an InlineKeyboardMarkup object with the list of buttons
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Send a message with the list of items and the keyboard
+        if upd.callback_query:
+            upd.callback_query.message.reply_text("<b>Select a model:</b>", reply_markup=reply_markup)
+        else:
+            context.bot.send_message(text="<b>Select a model:</b>", chat_id=upd.message.chat.id, reply_markup=reply_markup,parse_mode="HTML")
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
