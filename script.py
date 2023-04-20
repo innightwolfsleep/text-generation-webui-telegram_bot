@@ -253,7 +253,7 @@ class TelegramBotWrapper:
         self.updater.dispatcher.add_handler(
             CommandHandler("models", self.get_models))
         self.updater.dispatcher.add_handler(
-            CommandHandler("chars", self.get_character_list))
+            CommandHandler("chars", self.get_characters_list))
         self.updater.dispatcher.add_handler(
             MessageHandler(Filters.text, self.cb_get_message))
         self.updater.dispatcher.add_handler(
@@ -491,7 +491,7 @@ class TelegramBotWrapper:
         elif option == self.BTN_CHAR_LIST:
             self.get_characters_list(upd=upd, context=context)
 
-    def get_character_list(self, upd: Update, context: CallbackContext):
+    def get_characters_list(self, upd: Update, context: CallbackContext):
         char_list = self.parse_characters_dir()
         keyboard = [[InlineKeyboardButton(item.replace('.json', '').replace('.yaml', ''), callback_data=f'CHARACTER_SELECTION:{index}')] for index, item in enumerate(char_list)]
         # Create an InlineKeyboardMarkup object with the list of buttons
