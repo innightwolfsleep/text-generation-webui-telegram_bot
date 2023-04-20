@@ -400,12 +400,12 @@ class TelegramBotWrapper:
         if exists(user_char_history_path):
             self.load_user_history(chat_id, user_char_history_path)
         if len(self.users[chat_id].history) > 0:
-            send_text = self.message_template_generator("hist_loaded", chat_id, self.users[chat_id].history[-1])
+            send_text = self.message_template_generator("hist_loaded", chat_id, self.users[chat_id].history[-1], parse_mode="HTML")
         else:
             send_text = self.message_template_generator("char_loaded", chat_id)
         self.last_message_markup_clean(context, chat_id)
         context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        context.bot.send_message(chat_id=chat_id, text=send_text, reply_markup=None)
+        context.bot.send_message(chat_id=chat_id, text=send_text, reply_markup=None, parse_mode="HTML")
 
     def model_button_click(self, upd: Update, context: CallbackContext):
         query = upd.callback_query
