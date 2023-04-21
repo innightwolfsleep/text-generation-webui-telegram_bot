@@ -498,7 +498,7 @@ class TelegramBotWrapper:
         reply_markup = InlineKeyboardMarkup(keyboard)
         # Send a message with the list of items and the keyboard
         if upd.callback_query:
-            upd.callback_query.message.reply_text("<b>Select a character:<b>", reply_markup=reply_markup)
+            upd.callback_query.message.reply_text("<b>Select a character:<b>", reply_markup=reply_markup, parse_mode="HTML")
         else:
             context.bot.send_message(text="<b>Select a character:</b>", chat_id=upd.message.chat.id, reply_markup=reply_markup, parse_mode="HTML")
 
@@ -509,9 +509,9 @@ class TelegramBotWrapper:
         reply_markup = InlineKeyboardMarkup(keyboard)
         # Send a message with the list of items and the keyboard
         if upd.callback_query:
-            upd.callback_query.message.reply_text("<b>Select a model:</b>", reply_markup=reply_markup)
+            upd.callback_query.message.reply_text("<b>Select a model:</b>", reply_markup=reply_markup, parse_mode="HTML")
         else:
-            context.bot.send_message(text="<b>Select a model:</b>", chat_id=upd.message.chat.id, reply_markup=reply_markup,parse_mode="HTML")
+            context.bot.send_message(text="<b>Select a model:</b>", chat_id=upd.message.chat.id, reply_markup=reply_markup, parse_mode="HTML")
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
