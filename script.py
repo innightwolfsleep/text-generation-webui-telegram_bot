@@ -39,6 +39,7 @@ class TelegramBotWrapper:
     BTN_RESET = 'Reset'
     BTN_DOWNLOAD = 'Download'
     BTN_CHAR_LIST = 'Chars'
+    BTN_CHAR_LOAD = 'Char_load'
     # Supplementary structure
     # Internal, changeable settings
     impersonate_prefix = "#"  # Prefix for "impersonate" messages during chatting
@@ -177,6 +178,7 @@ class TelegramBotWrapper:
         # Bot message open/close html tags. Set ["", ""] to disable.
         self.html_tag = ["<pre>", "</pre>"]
         # Set buttons
+        self.keyboard_len = 12
         self.button_start = None
         if self.bot_mode == self.MODE_CHAT:
             self.button = InlineKeyboardMarkup(
@@ -193,7 +195,7 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text="💾Download", callback_data=self.BTN_DOWNLOAD),
                         InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST),
+                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
                     ]
                 ]
             )
@@ -469,22 +471,86 @@ class TelegramBotWrapper:
             self.cutoff_message_button(upd=upd, context=context)
         elif option == self.BTN_DOWNLOAD:
             self.download_json_button(upd=upd, context=context)
-        elif option == self.BTN_CHAR_LIST:
-            self.get_characters_list(chat_id, context)
+        elif option.startswith(self.BTN_CHAR_LIST):
+            self.characters_keyboard_button(upd=upd, context=context, option=option)
+        elif option.startswith(self.BTN_CHAR_LOAD):
+            self.load_character_button(upd=upd, context=context, option=option)
 
-    def get_characters_list(self, chat_id, context):
+    def load_character_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        char_num = int(option.replace(self.BTN_CHAR_LOAD, ""))
         char_list = self.parse_characters_dir()
-        to_send = []
-        for i, char in enumerate(char_list):
-            to_send.append(
-                f"/{self.load_cmd}{i} {char.replace('.json', '').replace('.yaml', '')}")
-            if i % 50 == 0 and i != 0:
-                send_text = "\n".join(to_send)
-                context.bot.send_message(text=send_text, chat_id=chat_id)
-                to_send = []
-        if to_send:
-            send_text = "\n".join(to_send)
-            context.bot.send_message(text=send_text, chat_id=chat_id)
+        self.last_message_markup_clean(context, chat_id)
+        self.init_check_user(chat_id)
+        char_file = char_list[char_num]
+        self.users[chat_id] = self.load_character_file(char_file=char_file)
+        #  If there was conversation with this char - load history
+        user_char_history_path = f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id].name2}.json'
+        if exists(user_char_history_path):
+            self.load_user_history(chat_id, user_char_history_path)
+        if len(self.users[chat_id].history) > 0:
+            send_text = self.message_template_generator(
+                "hist_loaded", chat_id, self.users[chat_id].history[-1])
+        else:
+            send_text = self.message_template_generator(
+                "char_loaded", chat_id)
+        context.bot.send_message(
+            text=send_text, chat_id=chat_id,
+            parse_mode="HTML")
+
+    def characters_keyboard_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        msg = upd.callback_query.message
+        #  if "return char markup" button - clear markup
+        if option == self.BTN_CHAR_LIST + "back":
+            context.bot.editMessageReplyMarkup(chat_id=chat_id,
+                                               message_id=msg.message_id,
+                                               reply_markup=self.button)
+            return
+        #  get keyboard list shift
+        shift = int(option.replace(self.BTN_CHAR_LIST, ""))
+        char_list = self.parse_characters_dir()
+        if shift >= len(char_list):
+            shift = 0
+        #  create chars list
+        characters_buttons = []
+        for i in range(shift, self.keyboard_len + shift):
+            if i >= len(char_list):
+                break
+            characters_buttons.append([InlineKeyboardButton(
+                    text=f"{char_list[i].replace('.json', '').replace('.yaml', '')}",
+                    callback_data=f"{self.BTN_CHAR_LOAD}{str(i)}"),
+                ]
+            )
+        # add switch buttons
+        switch_buttons = [
+                    InlineKeyboardButton(
+                        text="⏮",
+                        callback_data=self.BTN_CHAR_LIST + "0"),
+                    InlineKeyboardButton(
+                        text="⏪",
+                        callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len * 3)),
+                    InlineKeyboardButton(
+                        text="◀",
+                        callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len)),
+                    InlineKeyboardButton(
+                        text="⏹",
+                        callback_data=self.BTN_CHAR_LIST + "back"),
+                    InlineKeyboardButton(
+                        text="▶",
+                        callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len)),
+                    InlineKeyboardButton(
+                        text="⏩",
+                        callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len * 3)),
+                    InlineKeyboardButton(
+                        text="⏭",
+                        callback_data=self.BTN_CHAR_LIST + str(len(char_list) - self.keyboard_len)),
+                ]
+        characters_buttons.append(switch_buttons)
+        # add new keyboard to message!
+        characters_buttons = InlineKeyboardMarkup(characters_buttons)
+        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
+                                           reply_markup=characters_buttons)
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
