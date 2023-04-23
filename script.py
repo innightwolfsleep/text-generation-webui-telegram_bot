@@ -9,6 +9,11 @@ from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandle
 from modules.text_generation import generate_reply
 from typing import Dict
 
+try:
+    from deep_translator import GoogleTranslator
+except Exception as error:
+    print(f"cant import translator: {error}")
+
 params = {
     # Telegram bot token! Ask https://t.me/BotFather to get! By default, reading in telegram_token.txt
     "token": "TELEGRAM_TOKEN",
@@ -18,6 +23,8 @@ params = {
     'cutoff_mode': "delete",
     # character json file from text-generation-webui/characters
     'character_to_load': "Example.yaml",
+    # settings for auto-translate
+    'user_language': "en",
 }
 
 
@@ -84,6 +91,7 @@ class TelegramBotWrapper:
         """
         Class stored individual tg user info (history, message sequence, etc...) and provide some actions
         """
+
         def __init__(self, name1="You", name2="Bot", context="", greeting="Hi!"):
             """
             Init User class with default attribute
@@ -138,8 +146,8 @@ class TelegramBotWrapper:
                 self.msg_id = data["msg_id"]
                 self.greeting = data["greeting"]
                 return True
-            except Exception as e:
-                print("from_json", e)
+            except Exception as error:
+                print("from_json", error)
                 return False
 
     # dict of User data dicts, here stored all users' session info.
@@ -152,6 +160,8 @@ class TelegramBotWrapper:
                  default_char_json="Example.json",
                  history_dir_path="extensions/telegram_bot/history",
                  default_token_file_path="extensions/telegram_bot/telegram_token.txt",
+                 model_lang="en",
+                 user_lang="en"
                  ):
         """
         Init telegram bot class. Use run_telegram_bot() to initiate bot.
@@ -161,6 +171,8 @@ class TelegramBotWrapper:
         :param default_char_json: name of default character.json file. Default is "chat".
         :param history_dir_path: place where stored chat history. Default is "extensions/telegram_bot/history".
         :param default_token_file_path: path to token file. Default is "extensions/telegram_bot/telegram_token.txt".
+        :param model_lang: language of model
+        :param user_lang: language of conversation
         :return: None
         """
         # Set paths to history, default token file, characters dir
@@ -177,6 +189,9 @@ class TelegramBotWrapper:
         self.load_cmd = "load"
         # Bot message open/close html tags. Set ["", ""] to disable.
         self.html_tag = ["<pre>", "</pre>"]
+        # Set translator
+        self.model_lang = model_lang
+        self.user_lang = user_lang
         # Set buttons
         self.keyboard_len = 12
         self.button_start = None
@@ -301,8 +316,8 @@ class TelegramBotWrapper:
                 context.bot.editMessageReplyMarkup(
                     chat_id=chat_id, message_id=last_msg,
                     reply_markup=None)
-            except Exception as e:
-                print("last_message_markup_clean", e)
+            except Exception as error:
+                print("last_message_markup_clean", error)
 
     def message_template_generator(self, request: str, chat_id: int, custom_string="") -> str:
         # create a message using default_messages_template or return UNKNOWN_TEMPLATE
@@ -313,8 +328,8 @@ class TelegramBotWrapper:
             msg = msg.replace("_NAME1_", self.users[chat_id].name1)
             msg = msg.replace("_NAME2_", self.users[chat_id].name2)
             msg = msg.replace("_CONTEXT_", self.users[chat_id].context)
-            msg = msg.replace("_GREETING_", self.users[chat_id].greeting)
-            msg = msg.replace("_CUSTOM_STRING_", custom_string)
+            msg = msg.replace("_GREETING_", self.translate(self.users[chat_id].greeting, "to_user"))
+            msg = msg.replace("_CUSTOM_STRING_", self.translate(custom_string, "to_user"))
             msg = msg.replace("_OPEN_TAG_", self.html_tag[0])
             msg = msg.replace("_CLOSE_TAG_", self.html_tag[1])
             return msg
@@ -349,8 +364,8 @@ class TelegramBotWrapper:
             with open(file_path, 'r', encoding='utf-8') as user_file:
                 data = user_file.read()
             self.users[chat_id].from_json(data)
-        except Exception as e:
-            print(f"load_user_history: {e}")
+        except Exception as error:
+            print(f"load_user_history: {error}")
 
     def save_user_history(self, chat_id, chat_name=""):
         """
@@ -403,7 +418,8 @@ class TelegramBotWrapper:
         if exists(user_char_history_path):
             self.load_user_history(chat_id, user_char_history_path)
         if len(self.users[chat_id].history) > 0:
-            send_text = self.message_template_generator("hist_loaded", chat_id, self.users[chat_id].history[-1])
+            send_text = self.message_template_generator("hist_loaded", chat_id,
+                                                        self.users[chat_id].history[-1])
         else:
             send_text = self.message_template_generator("char_loaded", chat_id)
         self.last_message_markup_clean(context, chat_id)
@@ -422,8 +438,10 @@ class TelegramBotWrapper:
             text=send_text, chat_id=chat_id,
             parse_mode="HTML")
         # Generate answer and replace "typing" message with it
+        user_text = self.translate(user_text, "to_model")
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
         answer = self.html_tag[0] + answer + self.html_tag[1]
+        answer = self.translate(answer, "to_user")
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=message.message_id,
@@ -503,9 +521,10 @@ class TelegramBotWrapper:
         msg = upd.callback_query.message
         #  if "return char markup" button - clear markup
         if option == self.BTN_CHAR_LIST + "back":
-            context.bot.editMessageReplyMarkup(chat_id=chat_id,
-                                               message_id=msg.message_id,
-                                               reply_markup=self.button)
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id,
+                message_id=msg.message_id,
+                reply_markup=self.button)
             return
         #  get keyboard list shift
         shift = int(option.replace(self.BTN_CHAR_LIST, ""))
@@ -518,39 +537,41 @@ class TelegramBotWrapper:
             if i >= len(char_list):
                 break
             characters_buttons.append([InlineKeyboardButton(
-                    text=f"{char_list[i].replace('.json', '').replace('.yaml', '')}",
-                    callback_data=f"{self.BTN_CHAR_LOAD}{str(i)}"),
-                ]
+                text=f"{char_list[i].replace('.json', '').replace('.yaml', '')}",
+                callback_data=f"{self.BTN_CHAR_LOAD}{str(i)}"),
+            ]
             )
         # add switch buttons
         switch_buttons = [
-                    InlineKeyboardButton(
-                        text="⏮",
-                        callback_data=self.BTN_CHAR_LIST + "0"),
-                    InlineKeyboardButton(
-                        text="⏪",
-                        callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len * 3)),
-                    InlineKeyboardButton(
-                        text="◀",
-                        callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len)),
-                    InlineKeyboardButton(
-                        text="⏹",
-                        callback_data=self.BTN_CHAR_LIST + "back"),
-                    InlineKeyboardButton(
-                        text="▶",
-                        callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len)),
-                    InlineKeyboardButton(
-                        text="⏩",
-                        callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len * 3)),
-                    InlineKeyboardButton(
-                        text="⏭",
-                        callback_data=self.BTN_CHAR_LIST + str(len(char_list) - self.keyboard_len)),
-                ]
+            InlineKeyboardButton(
+                text="⏮",
+                callback_data=self.BTN_CHAR_LIST + "0"),
+            InlineKeyboardButton(
+                text="⏪",
+                callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len * 3)),
+            InlineKeyboardButton(
+                text="◀",
+                callback_data=self.BTN_CHAR_LIST + str(shift - self.keyboard_len)),
+            InlineKeyboardButton(
+                text="⏹",
+                callback_data=self.BTN_CHAR_LIST + "back"),
+            InlineKeyboardButton(
+                text="▶",
+                callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len)),
+            InlineKeyboardButton(
+                text="⏩",
+                callback_data=self.BTN_CHAR_LIST + str(shift + self.keyboard_len * 3)),
+            InlineKeyboardButton(
+                text="⏭",
+                callback_data=self.BTN_CHAR_LIST + str(len(char_list) - self.keyboard_len)),
+        ]
         characters_buttons.append(switch_buttons)
         # add new keyboard to message!
         characters_buttons = InlineKeyboardMarkup(characters_buttons)
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
-                                           reply_markup=characters_buttons)
+        context.bot.editMessageReplyMarkup(
+            chat_id=chat_id,
+            message_id=msg.message_id,
+            reply_markup=characters_buttons)
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -565,6 +586,7 @@ class TelegramBotWrapper:
         # get answer and replace message text!
         answer = self.generate_answer(user_in='', chat_id=chat_id)
         answer = self.html_tag[0] + answer + self.html_tag[1]
+        answer = self.translate(answer, "to_user")
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=message.message_id,
@@ -590,7 +612,7 @@ class TelegramBotWrapper:
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
         answer = self.html_tag[0] + answer + self.html_tag[1]
-
+        answer = self.translate(answer, "to_user")
         context.bot.editMessageText(
             text=answer, chat_id=chat_id,
             message_id=msg.message_id,
@@ -604,7 +626,7 @@ class TelegramBotWrapper:
         user = self.users[chat_id]
         send_text = f"<s>{user.history[-1]}</s>"
 
-        # Edit last message ID (strict lines)
+        # Edit or delete last message ID (strict lines)
         last_msg_id = user.msg_id[-1]
         if self.cutoff_mode == self.CUTOFF_STRICT:
             context.bot.editMessageText(
@@ -620,13 +642,11 @@ class TelegramBotWrapper:
 
         # If there is previous message - add buttons to previous message
         if user.msg_id:
-            send_text = self.html_tag[0] + user.history[-1] + self.html_tag[1]
             message_id = user.msg_id[-1]
-            context.bot.editMessageText(
-                text=send_text, chat_id=chat_id,
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=self.button,
-                parse_mode="HTML")
+                reply_markup=self.button)
         self.save_user_history(chat_id, user.name2)
 
     def download_json_button(self, upd: Update, context: CallbackContext):
@@ -722,8 +742,8 @@ class TelegramBotWrapper:
             if len(answer) < 1:
                 answer = self.GENERATOR_EMPTY_ANSWER
 
-        except Exception as e:
-            print("generate_answer", e)
+        except Exception as error:
+            print("generate_answer", error)
 
         finally:
             # anyway, release generator lock. Then return
@@ -734,6 +754,19 @@ class TelegramBotWrapper:
                 user.history[-1] = user.history[-1] + answer
 
             return user.history[-1]
+
+    def translate(self, text, direction="to_user"):
+        if self.model_lang != self.user_lang:
+            if direction == "to_model":
+                return GoogleTranslator(
+                    source=self.user_lang,
+                    target=self.model_lang).translate(text)
+            elif direction == "to_user":
+                return GoogleTranslator(
+                    source=self.model_lang,
+                    target=self.user_lang).translate(text)
+        else:
+            return text
 
     # =============================================================================
     # load characters char_file from ./characters
@@ -772,8 +805,8 @@ class TelegramBotWrapper:
                 user.greeting = data['greeting'].strip()
             user.context = self.replace_context_templates(user.context, user)
             user.greeting = self.replace_context_templates(user.greeting, user)
-        except Exception as e:
-            print("load_char_json_file", e)
+        except Exception as error:
+            print("load_char_json_file", error)
         finally:
             return user
 
@@ -790,7 +823,8 @@ def run_server():
     # example with char load context:
     tg_server = TelegramBotWrapper(bot_mode=params['bot_mode'],
                                    default_char_json=params['character_to_load'],
-                                   cutoff_mode=params["cutoff_mode"])
+                                   cutoff_mode=params["cutoff_mode"],
+                                   user_lang=params["user_language"])
     # by default - read token from extensions/telegram_bot/telegram_token.txt
     tg_server.run_telegram_bot()
 
