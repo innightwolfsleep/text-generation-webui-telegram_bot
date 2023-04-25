@@ -10,7 +10,11 @@ REQUIREMENTS:
 
 HOW TO INSTALL:
 1) clone this repo to "text-generation-webui\extensions"
-2) install "python-telegram-bot==13.15" module to your textgen envivroment. (Easiest way is run "webui.bat" with additional string "call pip install -r extensions\telegram_bot\requirements.txt" before "call python server.py"
+```
+cd text-generation-webui
+git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot extensions\telegram_bot
+```
+2) install "python-telegram-bot==13.15" module to your textgen envivroment. (Easiest way is run "webui.bat" with additional string "**call pip install -r extensions\telegram_bot\requirements.txt**" before "call python server.py"
 
 HOW TO USE:
 1) add your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt" (ask https://t.me/BotFather how to get token)
@@ -30,3 +34,4 @@ TBC:
 - replace "X typing" by yield from generator
 - group chat mode (need to be tested, does current workflow is ok?)
 - switch text generator settings
+- integrate google translator
