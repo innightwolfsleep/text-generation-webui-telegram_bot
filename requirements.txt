@@ -1,2 +1,3 @@
 python-telegram-bot==13.15
 pyyaml
+deep-translator==1.9.2
