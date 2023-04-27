@@ -48,11 +48,11 @@ class TelegramBotWrapper:
     BTN_CUTOFF = 'Cutoff'
     BTN_RESET = 'Reset'
     BTN_DOWNLOAD = 'Download'
-    BTN_CHAR_LIST = 'Chars'
-    BTN_CHAR_LOAD = 'CHAR_LOAD'
-    BTN_MODEL_SELECTION = 'MODEL_SELECTION:'
-    BTN_PRESET_LIST = 'preset_list:'
-    BTN_PRESET_LOAD = 'preset_set:'
+    BTN_CHAR_LIST = 'Chars_list'
+    BTN_CHAR_LOAD = 'Chars_load:'
+    BTN_MODEL_SELECTION = 'Model_load:'
+    BTN_PRESET_LIST = 'Presets_list:'
+    BTN_PRESET_LOAD = 'Preset_load:'
     # Supplementary structure
     # Internal, changeable settings
     impersonate_prefix = "#"  # Prefix for "impersonate" messages during chatting
@@ -61,6 +61,7 @@ class TelegramBotWrapper:
         "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
         "typing": "<i>_NAME2_ typing...</i>",  # added when generating working
         "char_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_ ",  # When new char loaded
+        "preset_loaded": "LOADED PRESET: <b>_CUSTOM_STRING_</b>",  # When new char loaded
         "mem_reset": "MEMORY RESET!\nSend /start or any text for new session.",  # When history cleared
         "hist_to_chat": "To load history - forward message to this chat",  # download history
         "hist_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_"
@@ -68,7 +69,7 @@ class TelegramBotWrapper:
     }
     generation_params = {
         'max_new_tokens': 200,
-        'seed': -1.0,
+        'seed': -1,
         'temperature': 0.72,
         'top_p': 0.73,
         'top_k': 0,
@@ -85,9 +86,9 @@ class TelegramBotWrapper:
         'add_bos_token': True,
         'ban_eos_token': False,
         'truncation_length': 1024,
-        'custom_stopping_strings': [],
+        'custom_stopping_strings': '',
         'end_of_turn': '',
-        'chat_prompt_size': 1024,
+        'chat_prompt_size': 2048,
         'chat_generation_attempts': 1,
         'stop_at_newline': False,
         'skip_special_tokens': True,
@@ -207,19 +208,19 @@ class TelegramBotWrapper:
                 [
                     [
                         InlineKeyboardButton(
-                            text="▶Continue", callback_data=self.BTN_CONTINUE),
+                            text="➡Continue", callback_data=self.BTN_CONTINUE),
                         InlineKeyboardButton(
-                            text="🔄Regenerate", callback_data=self.BTN_REGEN),
+                            text="♻Regenerate", callback_data=self.BTN_REGEN),
                         InlineKeyboardButton(
                             text="✂Cutoff", callback_data=self.BTN_CUTOFF),
                         InlineKeyboardButton(
-                            text="💾Download", callback_data=self.BTN_DOWNLOAD),
+                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
                         InlineKeyboardButton(
                             text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
                         InlineKeyboardButton(
                             text="🚫Reset", callback_data=self.BTN_RESET),
                         InlineKeyboardButton(
-                            text="🔡Presets", callback_data=self.BTN_PRESET_LIST + "0"),
+                            text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"),
                     ]
                 ]
             )
@@ -336,8 +337,8 @@ class TelegramBotWrapper:
             msg = msg.replace("_NAME1_", self.users[chat_id].name1)
             msg = msg.replace("_NAME2_", self.users[chat_id].name2)
             msg = msg.replace("_CONTEXT_", self.users[chat_id].context)
-            msg = msg.replace("_GREETING_", self.translate(self.users[chat_id].greeting, "to_user"))
-            msg = msg.replace("_CUSTOM_STRING_", self.translate(custom_string, "to_user"))
+            msg = msg.replace("_GREETING_", self.text_preparing(self.users[chat_id].greeting, "to_user"))
+            msg = msg.replace("_CUSTOM_STRING_", self.text_preparing(custom_string, "to_user"))
             msg = msg.replace("_OPEN_TAG_", self.html_tag[0])
             msg = msg.replace("_CLOSE_TAG_", self.html_tag[1])
             return msg
@@ -431,10 +432,9 @@ class TelegramBotWrapper:
         message = context.bot.send_message(text=send_text, chat_id=chat_id,
                                            parse_mode="HTML")
         # Generate answer and replace "typing" message with it
-        user_text = self.translate(user_text, "to_model")
+        user_text = self.text_preparing(user_text, "to_model")
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
-        answer = self.html_tag[0] + answer + self.html_tag[1]
-        answer = self.translate(answer, "to_user")
+        answer = self.text_preparing(answer, "to_user")
         context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=message.message_id,
                                     parse_mode="HTML",
                                     reply_markup=self.button)
@@ -510,9 +510,25 @@ class TelegramBotWrapper:
 
     def load_presets_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
-        preset_char_num = int(option.replace(self.BTN_CHAR_LOAD, ""))
-        preset_list = self.parse_presets_dir()
-        self.last_message_markup_clean(context, chat_id)
+        preset_char_num = int(option.replace(self.BTN_PRESET_LOAD, ""))
+        preset = self.parse_presets_dir()[preset_char_num]
+        with open(self.presets_dir_path + "/" + preset, "r") as preset_file:
+            for line in preset_file.readlines():
+                name, value = line.replace("\n", "").replace("\r", "").split("=")
+                if name in self.generation_params:
+                    if type(self.generation_params[name]) is int:
+                        self.generation_params[name] = float(value)
+                    elif type(self.generation_params[name]) is float:
+                        self.generation_params[name] = float(value)
+                    elif type(self.generation_params[name]) is str:
+                        self.generation_params[name] = str(value)
+                    elif type(self.generation_params[name]) is bool:
+                        self.generation_params[name] = bool(value)
+                    elif type(self.generation_params[name]) is list:
+                        self.generation_params[name] = list(value.split(","))
+        print(self.generation_params)
+        send_text = self.message_template_generator("preset_loaded", chat_id, preset)
+        context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
 
     def load_character_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
@@ -609,7 +625,7 @@ class TelegramBotWrapper:
                 text="◀",
                 callback_data=button_data + str(shift - self.keyboard_len)),
             InlineKeyboardButton(
-                text="⏹",
+                text="🔺",
                 callback_data=button_data + "back"),
             InlineKeyboardButton(
                 text="▶",
@@ -649,8 +665,7 @@ class TelegramBotWrapper:
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in='', chat_id=chat_id)
-        answer = self.html_tag[0] + answer + self.html_tag[1]
-        answer = self.translate(answer, "to_user")
+        answer = self.text_preparing(answer, "to_user")
         context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=message.message_id,
                                     reply_markup=self.button,
                                     parse_mode="HTML")
@@ -661,7 +676,7 @@ class TelegramBotWrapper:
         msg = upd.callback_query.message
         user = self.users[chat_id]
         # add pretty "retyping" to message text
-        send_text = self.html_tag[0] + msg.text + self.html_tag[1]
+        send_text = self.text_preparing(msg.text)
         send_text += self.message_template_generator('retyping', chat_id)
         context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg.message_id,
                                     parse_mode="HTML")
@@ -671,8 +686,7 @@ class TelegramBotWrapper:
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
-        answer = self.html_tag[0] + answer + self.html_tag[1]
-        answer = self.translate(answer, "to_user")
+        answer = self.text_preparing(answer, "to_user")
         context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=msg.message_id,
                                     reply_markup=self.button,
                                     parse_mode="HTML")
@@ -721,17 +735,12 @@ class TelegramBotWrapper:
             chat_id = upd.callback_query.message.chat.id
         else:
             chat_id = upd.message.chat.id
-
         if chat_id not in self.users:
             return
-
         user = self.users[chat_id]
-
         if user.msg_id:
             self.last_message_markup_clean(context, chat_id)
-
         user.reset_history()
-
         send_text = self.message_template_generator("mem_reset", chat_id)
         context.bot.send_message(chat_id=chat_id, text=send_text, parse_mode="HTML")
 
@@ -741,39 +750,32 @@ class TelegramBotWrapper:
         # if generation will fail, return "fail" answer
         answer = self.GENERATOR_FAIL
         user = self.users[chat_id]
-
         # Append user_in history
         user.user_in.append(user_in)
-
         # Preprocessing: add user_in to history in right order:
         if self.bot_mode == "notebook":
             # If notebook mode - append to history only user_in, no additional preparing;
             user.history.append(user_in)
-
         elif user_in.startswith(self.impersonate_prefix):
             # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
             # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
             user.history.append("")
             user.history.append(user_in[len(self.impersonate_prefix):] + ":")
-
         elif user_in == "":
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
             user.history.append("")
             user.history.append(user.name2 + ":")
-
         else:
             # If not notebook/impersonate/continue mode then ordinary chat preparing
             # add "name1&2:" to user and bot message (generation from name2 point of view);
             user.history.append(user.name1 + ":" + user_in)
             user.history.append(user.name2 + ":")
-
         # Set eos_token and stopping_strings.
         stopping_strings = []
         eos_token = None
         if self.bot_mode in ["chat", "chat-restricted"]:
             eos_token = '\n'
-
         # Make prompt: context + conversation history
         prompt = user.context + "\n".join(user.history).replace("\n\n", "\n")
 
@@ -785,40 +787,38 @@ class TelegramBotWrapper:
                                        state=self.generation_params,
                                        eos_token=eos_token,
                                        stopping_strings=stopping_strings)
-
             # This is "bad" implementation of getting answer, should be reworked
             for a in generator:
                 answer = a
-
             # If generation result zero length - return  "Empty answer."
             if len(answer) < 1:
                 answer = self.GENERATOR_EMPTY_ANSWER
-
         except Exception as exception:
             print("generate_answer", exception)
-
         finally:
             # anyway, release generator lock. Then return
             self.generator_lock.release()
-
             if answer not in [self.GENERATOR_EMPTY_ANSWER, self.GENERATOR_FAIL]:
                 # if everything ok - add generated answer in history and return last message
                 user.history[-1] = user.history[-1] + answer
-
             return user.history[-1]
 
-    def translate(self, text, direction="to_user"):
+    def text_preparing(self, text, direction="to_user"):
+        # translate
         if self.model_lang != self.user_lang:
             if direction == "to_model":
-                return Translator(
+                text = Translator(
                     source=self.user_lang,
                     target=self.model_lang).translate(text)
             elif direction == "to_user":
-                return Translator(
+                text = Translator(
                     source=self.model_lang,
                     target=self.user_lang).translate(text)
-        else:
-            return text
+        # Add HTML tags and other...
+        if direction not in ["to_model", "no_html"]:
+            text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
+            text = self.html_tag[0] + text + self.html_tag[1]
+        return text
 
     # =============================================================================
     # load characters char_file from ./characters
