@@ -517,7 +517,7 @@ class TelegramBotWrapper:
                 name, value = line.replace("\n", "").replace("\r", "").split("=")
                 if name in self.generation_params:
                     if type(self.generation_params[name]) is int:
-                        self.generation_params[name] = float(value)
+                        self.generation_params[name] = int(float(value))
                     elif type(self.generation_params[name]) is float:
                         self.generation_params[name] = float(value)
                     elif type(self.generation_params[name]) is str:
@@ -526,7 +526,6 @@ class TelegramBotWrapper:
                         self.generation_params[name] = bool(value)
                     elif type(self.generation_params[name]) is list:
                         self.generation_params[name] = list(value.split(","))
-        print(self.generation_params)
         send_text = self.message_template_generator("preset_loaded", chat_id, preset)
         context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
 
