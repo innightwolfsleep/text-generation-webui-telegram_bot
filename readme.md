@@ -36,4 +36,3 @@ TBC:
 - replace "X typing" by yield from generator
 - group chat mode (need to be tested, does current workflow is ok?)
 - migrate to aiogram
-- add "admin" and "answer" modes.
