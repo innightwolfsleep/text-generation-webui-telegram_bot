@@ -35,4 +35,5 @@ FEATURES:
 TBC:
 - replace "X typing" by yield from generator
 - group chat mode (need to be tested, does current workflow is ok?)
-- switch text generator settings
+- migrate to aiogram
+- add "admin" and "answer" modes.
