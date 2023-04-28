@@ -21,7 +21,7 @@ params = {
     # Telegram bot token! Ask https://t.me/BotFather to get! By default, reading in telegram_token.txt
     "token": "TELEGRAM_TOKEN",
     # chat, chat-restricted, notebook, persona
-    'bot_mode': "chat",
+    'bot_mode': "admin",
     # delete (remove cut text) or cross (cross-cut text)
     'cutoff_mode': "delete",
     # character json file from text-generation-webui/characters
@@ -37,10 +37,12 @@ class TelegramBotWrapper:
     GENERATOR_EMPTY_ANSWER = "<EMPTY ANSWER>"
     UNKNOWN_TEMPLATE = "<UNKNOWN TEMPLATE>"
     # Various predefined data
+    MODE_ADMIN = "admin"
     MODE_CHAT = "chat"
     MODE_CHAT_R = "chat-restricted"
     MODE_NOTEBOOK = "notebook"
     MODE_PERSONA = "persona"
+    MODE_QUERY = "query"
     CUTOFF_DELETE = "delete"
     CUTOFF_STRICT = "cross"
     BTN_CONTINUE = 'Continue'
@@ -50,7 +52,8 @@ class TelegramBotWrapper:
     BTN_DOWNLOAD = 'Download'
     BTN_CHAR_LIST = 'Chars_list'
     BTN_CHAR_LOAD = 'Chars_load:'
-    BTN_MODEL_SELECTION = 'Model_load:'
+    BTN_MODEL_LIST = 'Model_list:'
+    BTN_MODEL_LOAD = 'Model_load:'
     BTN_PRESET_LIST = 'Presets_list:'
     BTN_PRESET_LOAD = 'Preset_load:'
     # Supplementary structure
@@ -61,7 +64,8 @@ class TelegramBotWrapper:
         "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
         "typing": "<i>_NAME2_ typing...</i>",  # added when generating working
         "char_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_ ",  # When new char loaded
-        "preset_loaded": "LOADED PRESET: <b>_CUSTOM_STRING_</b>",  # When new char loaded
+        "preset_loaded": "LOADED PRESET: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
+        "model_loaded": "LOADED MODEL: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
         "mem_reset": "MEMORY RESET!\nSend /start or any text for new session.",  # When history cleared
         "hist_to_chat": "To load history - forward message to this chat",  # download history
         "hist_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_"
@@ -169,7 +173,8 @@ class TelegramBotWrapper:
                  history_dir_path="extensions/telegram_bot/history",
                  token_file_path="extensions/telegram_bot/telegram_token.txt",
                  model_lang="en",
-                 user_lang="en"
+                 user_lang="en",
+                 admins=""
                  ):
         """
         Init telegram bot class. Use run_telegram_bot() to initiate bot.
@@ -182,6 +187,7 @@ class TelegramBotWrapper:
         :param token_file_path: path to token file. Default is "extensions/telegram_bot/telegram_token.txt".
         :param model_lang: language of model
         :param user_lang: language of conversation
+        :param admins: string with admins user separated by ","
         :return: None
         """
         # Set paths to history, default token file, characters dir
@@ -189,6 +195,8 @@ class TelegramBotWrapper:
         self.token_file_path = token_file_path
         self.characters_dir_path = characters_dir_path
         self.presets_dir_path = presets_dir_path
+        # Set bot mode
+        self.admins_list = admins.split(",")
         # Set bot mode
         self.bot_mode = bot_mode
         # Set default character json file
@@ -203,55 +211,7 @@ class TelegramBotWrapper:
         # Set buttons
         self.keyboard_len = 12
         self.button_start = None
-        if self.bot_mode == self.MODE_CHAT:
-            self.button = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="➡Continue", callback_data=self.BTN_CONTINUE),
-                        InlineKeyboardButton(
-                            text="♻Regenerate", callback_data=self.BTN_REGEN),
-                        InlineKeyboardButton(
-                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
-                        InlineKeyboardButton(
-                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
-                        InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="🚫Reset", callback_data=self.BTN_RESET),
-                        InlineKeyboardButton(
-                            text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_CHAT_R:
-            self.button = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="▶Continue", callback_data=self.BTN_CONTINUE),
-                        InlineKeyboardButton(
-                            text="🔄Regenerate", callback_data=self.BTN_REGEN),
-                        InlineKeyboardButton(
-                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
-                        InlineKeyboardButton(
-                            text="🚫Reset memory", callback_data=self.BTN_RESET),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_NOTEBOOK:
-            self.button = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="▶Continue", callback_data=self.BTN_CONTINUE),
-                        InlineKeyboardButton(
-                            text="🚫Reset memory", callback_data=self.BTN_RESET),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_PERSONA:
-            self.button = None
+
         # Set dummy obj for telegram updater
         self.updater = None
         # Define generator lock to prevent GPU overloading
@@ -275,18 +235,9 @@ class TelegramBotWrapper:
         self.updater.dispatcher.add_handler(
             CommandHandler("start", self.cb_start_command)),
         self.updater.dispatcher.add_handler(
-            CommandHandler("reset", self.reset_history_button))
-        self.updater.dispatcher.add_handler(
-            CommandHandler("models", self.get_models))
-        self.updater.dispatcher.add_handler(
-            CommandHandler("presets", self.get_models))
-        self.updater.dispatcher.add_handler(
-            CommandHandler("chars", self.characters_keyboard_buttons))
-        self.updater.dispatcher.add_handler(
             MessageHandler(Filters.text, self.cb_get_message))
         self.updater.dispatcher.add_handler(
-            MessageHandler(Filters.document.mime_type("application/json"),
-                           self.cb_get_json_document))
+            MessageHandler(Filters.document.mime_type("application/json"), self.cb_get_json_document))
         self.updater.dispatcher.add_handler(
             CallbackQueryHandler(self.cb_opt_button))
 
@@ -314,17 +265,16 @@ class TelegramBotWrapper:
         chat_id = upd.effective_chat.id
         self.init_check_user(chat_id)
         send_text = self.message_template_generator("char_loaded", chat_id)
-        context.bot.send_message(text=send_text, chat_id=chat_id,
-                                 reply_markup=self.button_start,
-                                 parse_mode="HTML")
+        context.bot.send_message(
+            text=send_text, chat_id=chat_id, reply_markup=self.button_start, parse_mode="HTML")
 
     def last_message_markup_clean(self, context: CallbackContext, chat_id: int):
         if (chat_id in self.users and
                 len(self.users[chat_id].msg_id) > 0):
             last_msg = self.users[chat_id].msg_id[-1]
             try:
-                context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=last_msg,
-                                                   reply_markup=None)
+                context.bot.editMessageReplyMarkup(
+                    chat_id=chat_id, message_id=last_msg, reply_markup=None)
             except Exception as exception:
                 print("last_message_markup_clean", exception)
 
@@ -410,15 +360,14 @@ class TelegramBotWrapper:
         default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
         with open(default_user_file_path, 'wb') as f:
             context.bot.get_file(upd.message.document.file_id).download(out=f)
-
         self.load_user_history(chat_id, default_user_file_path)
         if len(self.users[chat_id].history) > 0:
             last_message = self.users[chat_id].history[-1]
         else:
             last_message = "<no message in history>"
         send_text = self.message_template_generator("hist_loaded", chat_id, last_message)
-        context.bot.send_message(chat_id=chat_id, text=send_text,
-                                 parse_mode="HTML")
+        context.bot.send_message(
+            chat_id=chat_id, text=send_text, parse_mode="HTML")
 
     # =============================================================================
     # Message handler
@@ -429,15 +378,15 @@ class TelegramBotWrapper:
         self.init_check_user(chat_id)
         # Send "typing" message
         send_text = self.message_template_generator("typing", chat_id)
-        message = context.bot.send_message(text=send_text, chat_id=chat_id,
-                                           parse_mode="HTML")
+        message = context.bot.send_message(
+            text=send_text, chat_id=chat_id, parse_mode="HTML")
         # Generate answer and replace "typing" message with it
         user_text = self.text_preparing(user_text, "to_model")
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
         answer = self.text_preparing(answer, "to_user")
-        context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=message.message_id,
-                                    parse_mode="HTML",
-                                    reply_markup=self.button)
+        context.bot.editMessageText(
+            text=answer, chat_id=chat_id, message_id=message.message_id,
+            parse_mode="HTML", reply_markup=self.get_keyboard())
         # Clear buttons on last message (if they exist in current thread)
         self.last_message_markup_clean(context, chat_id)
         # Add message ID to message history
@@ -459,8 +408,8 @@ class TelegramBotWrapper:
             self.init_check_user(chat_id)
         if msg_id not in self.users[chat_id].msg_id:
             send_text = msg_text + self.message_template_generator("mem_lost", chat_id)
-            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg_id,
-                                        reply_markup=None)
+            context.bot.editMessageText(
+                text=send_text, chat_id=chat_id, message_id=msg_id, reply_markup=None)
         else:
             self.handle_option(option, upd, context)
             self.save_user_history(chat_id, self.users[chat_id].name2)
@@ -477,23 +426,117 @@ class TelegramBotWrapper:
         elif option == self.BTN_DOWNLOAD:
             self.download_json_button(upd=upd, context=context)
         elif option.startswith(self.BTN_CHAR_LIST):
-            self.characters_keyboard_buttons(upd=upd, context=context, option=option)
+            self.keyboard_characters_button(upd=upd, context=context, option=option)
         elif option.startswith(self.BTN_CHAR_LOAD):
             self.load_character_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_MODEL_SELECTION):
-            self.load_model_button(upd=upd, context=context)
         elif option.startswith(self.BTN_PRESET_LIST):
-            self.presets_keyboard_buttons(upd=upd, context=context, option=option)
+            self.keyboard_presets_button(upd=upd, context=context, option=option)
         elif option.startswith(self.BTN_PRESET_LOAD):
             self.load_presets_button(upd=upd, context=context, option=option)
+        elif option.startswith(self.BTN_MODEL_LIST):
+            self.keyboard_models_button(upd=upd, context=context, option=option)
+        elif option.startswith(self.BTN_MODEL_LOAD):
+            self.load_model_button(upd=upd, context=context)
 
+    def continue_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+
+        # send "typing"
+        self.last_message_markup_clean(context, chat_id)
+        send_text = self.message_template_generator("typing", chat_id)
+        message = context.bot.send_message(
+            text=send_text, chat_id=chat_id,
+            parse_mode="HTML")
+
+        # get answer and replace message text!
+        answer = self.generate_answer(user_in='', chat_id=chat_id)
+        answer = self.text_preparing(answer, "to_user")
+        context.bot.editMessageText(
+            text=answer, chat_id=chat_id, message_id=message.message_id,
+            reply_markup=self.get_keyboard(), parse_mode="HTML")
+        self.users[chat_id].msg_id.append(message.message_id)
+
+    def regenerate_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        msg = upd.callback_query.message
+        user = self.users[chat_id]
+        # add pretty "retyping" to message text
+        send_text = self.text_preparing(msg.text)
+        send_text += self.message_template_generator('retyping', chat_id)
+        context.bot.editMessageText(
+            text=send_text, chat_id=chat_id, message_id=msg.message_id, parse_mode="HTML")
+
+        # remove last bot answer, read and remove last user reply
+        user_in, _ = user.pop()
+
+        # get answer and replace message text!
+        answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
+        answer = self.text_preparing(answer, "to_user")
+        context.bot.editMessageText(
+            text=answer, chat_id=chat_id, message_id=msg.message_id,
+            reply_markup=self.get_keyboard(), parse_mode="HTML")
+        user.msg_id.append(msg.message_id)
+
+    def cutoff_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        user = self.users[chat_id]
+        send_text = f"<s>{user.history[-1]}</s>"
+
+        # Edit or delete last message ID (strict lines)
+        last_msg_id = user.msg_id[-1]
+        if self.cutoff_mode == self.CUTOFF_STRICT:
+            context.bot.editMessageText(
+                text=send_text, chat_id=chat_id, message_id=last_msg_id, parse_mode="HTML")
+        else:
+            context.bot.deleteMessage(
+                chat_id=chat_id, message_id=last_msg_id)
+
+        # Remove last message and bot answer from history
+        user.pop()
+
+        # If there is previous message - add buttons to previous message
+        if user.msg_id:
+            message_id = user.msg_id[-1]
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=message_id, reply_markup=self.get_keyboard())
+        self.save_user_history(chat_id, user.name2)
+
+    def download_json_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+
+        if chat_id not in self.users:
+            return
+
+        default_user_file_path, _ = self.save_user_history(chat_id)
+        with open(default_user_file_path, 'r', encoding='utf-8') as default_user_file:
+            send_caption = self.message_template_generator("hist_to_chat", chat_id)
+            context.bot.send_document(
+                chat_id=chat_id, caption=send_caption, document=default_user_file,
+                filename=self.users[chat_id].name2 + ".json")
+
+    def reset_history_button(self, upd: Update, context: CallbackContext):
+        # check if it is a callback_query or a command
+        if upd.callback_query:
+            chat_id = upd.callback_query.message.chat.id
+        else:
+            chat_id = upd.message.chat.id
+        if chat_id not in self.users:
+            return
+        user = self.users[chat_id]
+        if user.msg_id:
+            self.last_message_markup_clean(context, chat_id)
+        user.reset_history()
+        send_text = self.message_template_generator("mem_reset", chat_id)
+        context.bot.send_message(chat_id=chat_id, text=send_text, parse_mode="HTML")
+
+    # =============================================================================
+    # switching keyboard
     def load_model_button(self, upd: Update, context: CallbackContext):
         query = upd.callback_query
         model_list = server.get_available_models()
-        model_file = model_list[int(query.data.split(':')[-1])]
-        context.bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
-        message = context.bot.send_message(chat_id=upd.effective_chat.id, text="<b>Loading Model. 🪄</b>",
-                                           parse_mode="HTML")
+        model_file = model_list[int(query.data.replace(self.BTN_MODEL_LOAD, ""))]
+        message = context.bot.send_message(
+            chat_id=upd.effective_chat.id, text="Loading " + model_file + ". 🪄", parse_mode="HTML")
         try:
             server.unload_model()
             shared.model_name = model_file
@@ -501,12 +544,31 @@ class TelegramBotWrapper:
                 shared.model, shared.tokenizer = server.load_model(shared.model_name)
             while server.load_model is None:
                 time.sleep(1)
-            context.bot.edit_message_text(chat_id=message.chat_id, message_id=message.message_id,
-                                          text="<b>Model Loaded. ✅</b>", parse_mode="HTML")
+            send_text = self.message_template_generator(
+                request="model_loaded", chat_id=message.chat_id, custom_string=model_file)
+            context.bot.edit_message_text(
+                chat_id=message.chat_id, message_id=message.message_id,
+                text=send_text, parse_mode="HTML")
         except Exception as e:
             print("model button error: ", e)
-            context.bot.edit_message_text(chat_id=message.chat_id, message_id=message.message_id,
-                                          text="<b>Error. ⛔</b>", parse_mode="HTML")
+            context.bot.edit_message_text(
+                chat_id=message.chat_id, message_id=message.message_id,
+                text="Error during " + model_file + " loading. ⛔", parse_mode="HTML")
+
+    def keyboard_models_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        msg = upd.callback_query.message
+        model_list = server.get_available_models()
+        if option == self.BTN_MODEL_LIST + "back":
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=msg.message_id, reply_markup=self.get_keyboard())
+            return
+        shift = int(option.replace(self.BTN_MODEL_LIST, ""))
+        characters_buttons = self.get_switch_keyboard(
+            opt_list=model_list, shift=shift,
+            data_list=self.BTN_MODEL_LIST, data_load=self.BTN_MODEL_LOAD)
+        context.bot.editMessageReplyMarkup(
+            chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
 
     def load_presets_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
@@ -529,6 +591,23 @@ class TelegramBotWrapper:
         send_text = self.message_template_generator("preset_loaded", chat_id, preset)
         context.bot.send_message(text=send_text, chat_id=chat_id, parse_mode="HTML")
 
+    def keyboard_presets_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        msg = upd.callback_query.message
+        #  if "return char markup" button - clear markup
+        if option == self.BTN_PRESET_LIST + "back":
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=msg.message_id, reply_markup=self.get_keyboard())
+            return
+        #  get keyboard list shift
+        shift = int(option.replace(self.BTN_PRESET_LIST, ""))
+        preset_list = self.parse_presets_dir()
+        characters_buttons = self.get_switch_keyboard(
+            opt_list=preset_list, shift=shift,
+            data_list=self.BTN_PRESET_LIST, data_load=self.BTN_PRESET_LOAD)
+        context.bot.editMessageReplyMarkup(
+            chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
+
     def load_character_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
         char_num = int(option.replace(self.BTN_CHAR_LOAD, ""))
@@ -547,201 +626,26 @@ class TelegramBotWrapper:
         else:
             send_text = self.message_template_generator(
                 "char_loaded", chat_id)
-        context.bot.send_message(text=send_text, chat_id=chat_id,
-                                 parse_mode="HTML")
+        context.bot.send_message(
+            text=send_text, chat_id=chat_id, parse_mode="HTML")
 
-    def characters_keyboard_buttons(self, upd: Update, context: CallbackContext, option: str):
+    def keyboard_characters_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         #  if "return char markup" button - clear markup
         if option == self.BTN_CHAR_LIST + "back":
-            context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
-                                               reply_markup=self.button)
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=msg.message_id, reply_markup=self.get_keyboard())
             return
         #  get keyboard list shift
         shift = int(option.replace(self.BTN_CHAR_LIST, ""))
         char_list = self.parse_characters_dir()
-        if shift >= len(char_list):
-            shift = 0
         #  create chars list
-        characters_buttons = []
-        for i in range(shift, self.keyboard_len + shift):
-            if i >= len(char_list):
-                break
-            characters_buttons.append([InlineKeyboardButton(
-                text=f"{char_list[i].replace('.json', '').replace('.yaml', '')}",
-                callback_data=f"{self.BTN_CHAR_LOAD}{str(i)}"),
-            ]
-            )
-        # add switch buttons
-        switch_buttons = self.get_switch_keyboard(shift, len(char_list), self.BTN_CHAR_LIST)
-        characters_buttons.append(switch_buttons)
-        # add new keyboard to message!
-        characters_buttons = InlineKeyboardMarkup(characters_buttons)
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
-                                           reply_markup=characters_buttons)
-
-    def presets_keyboard_buttons(self, upd: Update, context: CallbackContext, option: str):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
-        #  if "return char markup" button - clear markup
-        if option == self.BTN_PRESET_LIST + "back":
-            context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
-                                               reply_markup=self.button)
-            return
-        #  get keyboard list shift
-        shift = int(option.replace(self.BTN_PRESET_LIST, ""))
-        preset_list = self.parse_presets_dir()
-        if shift >= len(preset_list):
-            shift = 0
-        #  create chars list
-        characters_buttons = []
-        for i in range(shift, self.keyboard_len + shift):
-            if i >= len(preset_list):
-                break
-            characters_buttons.append([InlineKeyboardButton(
-                text=f"{preset_list[i].replace('.json', '').replace('.yaml', '')}",
-                callback_data=f"{self.BTN_PRESET_LOAD}{str(i)}"),
-            ]
-            )
-        # add switch buttons
-        switch_buttons = self.get_switch_keyboard(shift, len(preset_list), self.BTN_PRESET_LIST)
-        characters_buttons.append(switch_buttons)
-        # add new keyboard to message!
-        characters_buttons = InlineKeyboardMarkup(characters_buttons)
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id,
-                                           reply_markup=characters_buttons)
-
-    def get_switch_keyboard(self, shift: int, list_length: int, button_data: str):
-        return [
-            InlineKeyboardButton(
-                text="⏮",
-                callback_data=button_data + "0"),
-            InlineKeyboardButton(
-                text="⏪",
-                callback_data=button_data + str(shift - self.keyboard_len * 3)),
-            InlineKeyboardButton(
-                text="◀",
-                callback_data=button_data + str(shift - self.keyboard_len)),
-            InlineKeyboardButton(
-                text="🔺",
-                callback_data=button_data + "back"),
-            InlineKeyboardButton(
-                text="▶",
-                callback_data=button_data + str(shift + self.keyboard_len)),
-            InlineKeyboardButton(
-                text="⏩",
-                callback_data=button_data + str(shift + self.keyboard_len * 3)),
-            InlineKeyboardButton(
-                text="⏭",
-                callback_data=button_data + str(list_length - self.keyboard_len)),
-        ]
-
-    def get_models(self, upd: Update, context: CallbackContext):
-        model_list = server.get_available_models()
-        keyboard = [[InlineKeyboardButton(item.replace('.json', '').replace('.yaml', ''),
-                                          callback_data=f'MODEL_SELECTION:{index}')] for index, item in
-                    enumerate(model_list)]
-        # Create an InlineKeyboardMarkup object with the list of buttons
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        # Send a message with the list of items and the keyboard
-        if upd.callback_query:
-            upd.callback_query.message.reply_text("<b>Select a model:</b>", reply_markup=reply_markup,
-                                                  parse_mode="HTML")
-        else:
-            context.bot.send_message(text="<b>Select a model:</b>", chat_id=upd.message.chat.id,
-                                     reply_markup=reply_markup, parse_mode="HTML")
-
-    def continue_message_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-
-        # send "typing"
-        self.last_message_markup_clean(context, chat_id)
-        send_text = self.message_template_generator("typing", chat_id)
-        message = context.bot.send_message(
-            text=send_text, chat_id=chat_id,
-            parse_mode="HTML")
-
-        # get answer and replace message text!
-        answer = self.generate_answer(user_in='', chat_id=chat_id)
-        answer = self.text_preparing(answer, "to_user")
-        context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=message.message_id,
-                                    reply_markup=self.button,
-                                    parse_mode="HTML")
-        self.users[chat_id].msg_id.append(message.message_id)
-
-    def regenerate_message_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
-        user = self.users[chat_id]
-        # add pretty "retyping" to message text
-        send_text = self.text_preparing(msg.text)
-        send_text += self.message_template_generator('retyping', chat_id)
-        context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=msg.message_id,
-                                    parse_mode="HTML")
-
-        # remove last bot answer, read and remove last user reply
-        user_in, _ = user.pop()
-
-        # get answer and replace message text!
-        answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
-        answer = self.text_preparing(answer, "to_user")
-        context.bot.editMessageText(text=answer, chat_id=chat_id, message_id=msg.message_id,
-                                    reply_markup=self.button,
-                                    parse_mode="HTML")
-        user.msg_id.append(msg.message_id)
-
-    def cutoff_message_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-        user = self.users[chat_id]
-        send_text = f"<s>{user.history[-1]}</s>"
-
-        # Edit or delete last message ID (strict lines)
-        last_msg_id = user.msg_id[-1]
-        if self.cutoff_mode == self.CUTOFF_STRICT:
-            context.bot.editMessageText(text=send_text, chat_id=chat_id, message_id=last_msg_id,
-                                        parse_mode="HTML")
-        else:
-            context.bot.deleteMessage(
-                chat_id=chat_id, message_id=last_msg_id)
-
-        # Remove last message and bot answer from history
-        user.pop()
-
-        # If there is previous message - add buttons to previous message
-        if user.msg_id:
-            message_id = user.msg_id[-1]
-            context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=message_id,
-                                               reply_markup=self.button)
-        self.save_user_history(chat_id, user.name2)
-
-    def download_json_button(self, upd: Update, context: CallbackContext):
-        chat_id = upd.callback_query.message.chat.id
-
-        if chat_id not in self.users:
-            return
-
-        default_user_file_path, _ = self.save_user_history(chat_id)
-        with open(default_user_file_path, 'r', encoding='utf-8') as default_user_file:
-            send_caption = self.message_template_generator("hist_to_chat", chat_id)
-            context.bot.send_document(chat_id=chat_id, caption=send_caption,
-                                      document=default_user_file,
-                                      filename=self.users[chat_id].name2 + ".json")
-
-    def reset_history_button(self, upd: Update, context: CallbackContext):
-        # check if it is a callback_query or a command
-        if upd.callback_query:
-            chat_id = upd.callback_query.message.chat.id
-        else:
-            chat_id = upd.message.chat.id
-        if chat_id not in self.users:
-            return
-        user = self.users[chat_id]
-        if user.msg_id:
-            self.last_message_markup_clean(context, chat_id)
-        user.reset_history()
-        send_text = self.message_template_generator("mem_reset", chat_id)
-        context.bot.send_message(chat_id=chat_id, text=send_text, parse_mode="HTML")
+        characters_buttons = self.get_switch_keyboard(
+            opt_list=char_list, shift=shift,
+            data_list=self.BTN_CHAR_LIST, data_load=self.BTN_CHAR_LOAD)
+        context.bot.editMessageReplyMarkup(
+            chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
 
     # =============================================================================
     # answer generator
@@ -752,6 +656,8 @@ class TelegramBotWrapper:
         # Append user_in history
         user.user_in.append(user_in)
         # Preprocessing: add user_in to history in right order:
+        if self.bot_mode in [self.MODE_QUERY]:
+            user.history = []
         if self.bot_mode == "notebook":
             # If notebook mode - append to history only user_in, no additional preparing;
             user.history.append(user_in)
@@ -773,7 +679,7 @@ class TelegramBotWrapper:
         # Set eos_token and stopping_strings.
         stopping_strings = []
         eos_token = None
-        if self.bot_mode in ["chat", "chat-restricted"]:
+        if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
             eos_token = '\n'
         # Make prompt: context + conversation history
         prompt = user.context + "\n".join(user.history).replace("\n\n", "\n")
@@ -868,6 +774,125 @@ class TelegramBotWrapper:
         s = s.replace('<BOT>', user.name2)
         s = s.replace('<USER>', user.name1)
         return s
+
+    def get_keyboard(self, chat_id=0):
+        if self.bot_mode == self.MODE_ADMIN or str(chat_id) in self.admins_list:
+            return InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="➡Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="♻Regenerate", callback_data=self.BTN_REGEN),
+                        InlineKeyboardButton(
+                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                        InlineKeyboardButton(
+                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
+                        InlineKeyboardButton(
+                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
+                        InlineKeyboardButton(
+                            text="🚫Reset", callback_data=self.BTN_RESET),
+                        InlineKeyboardButton(
+                            text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"),
+                        InlineKeyboardButton(
+                            text="🔨Model", callback_data=self.BTN_MODEL_LIST + "0"),
+                    ]
+                ]
+            )
+        if self.bot_mode == self.MODE_CHAT:
+            return InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="➡Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="♻Regenerate", callback_data=self.BTN_REGEN),
+                        InlineKeyboardButton(
+                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                        InlineKeyboardButton(
+                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
+                        InlineKeyboardButton(
+                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
+                        InlineKeyboardButton(
+                            text="🚫Reset", callback_data=self.BTN_RESET),
+                    ]
+                ]
+            )
+        elif self.bot_mode == self.MODE_CHAT_R:
+            return InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="▶Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="🔄Regenerate", callback_data=self.BTN_REGEN),
+                        InlineKeyboardButton(
+                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                        InlineKeyboardButton(
+                            text="🚫Reset memory", callback_data=self.BTN_RESET),
+                    ]
+                ]
+            )
+        elif self.bot_mode == self.MODE_NOTEBOOK:
+            return InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text="▶Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="🚫Reset memory", callback_data=self.BTN_RESET),
+                    ]
+                ]
+            )
+        elif self.bot_mode == self.MODE_PERSONA:
+            return None
+
+    def get_switch_keyboard(self, opt_list: list, shift: int, data_list: str, data_load: str):
+        opt_list_length = len(opt_list)
+        if shift >= opt_list_length or shift < 0:
+            shift = 0
+        characters_buttons = []
+        for i in range(shift, self.keyboard_len + shift):
+            if i >= opt_list_length:
+                break
+            characters_buttons.append([InlineKeyboardButton(
+                text=f"{opt_list[i].replace('.json', '').replace('.yaml', '')}",
+                callback_data=f"{data_load}{str(i)}"),
+                ]
+            )
+        # add switch buttons
+        begin_shift = 0
+        l_shift = shift - self.keyboard_len * 3
+        l_shift_3 = shift - self.keyboard_len * 3
+        r_shift = shift + self.keyboard_len * 3
+        r_shift_3 = shift + self.keyboard_len * 3
+        end_shift = opt_list_length - self.keyboard_len
+        switch_buttons = [
+            InlineKeyboardButton(
+                text="⏮",
+                callback_data=data_list + str(begin_shift)),
+            InlineKeyboardButton(
+                text="⏪",
+                callback_data=data_list + str(l_shift_3)),
+            InlineKeyboardButton(
+                text="◀",
+                callback_data=data_list + str(l_shift)),
+            InlineKeyboardButton(
+                text="🔺",
+                callback_data=data_list + "back"),
+            InlineKeyboardButton(
+                text="▶",
+                callback_data=data_list + str(r_shift)),
+            InlineKeyboardButton(
+                text="⏩",
+                callback_data=data_list + str(r_shift_3)),
+            InlineKeyboardButton(
+                text="⏭",
+                callback_data=data_list + str(end_shift)),
+        ]
+        characters_buttons.append(switch_buttons)
+        # add new keyboard to message!
+        return InlineKeyboardMarkup(characters_buttons)
 
 
 def run_server():
