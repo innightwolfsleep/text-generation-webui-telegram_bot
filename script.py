@@ -1,3 +1,4 @@
+import os.path
 from threading import Thread, Lock
 from pathlib import Path
 import json
@@ -17,19 +18,6 @@ try:
 except Exception as error:
     print(f"cant import translator: {error}")
 
-params = {
-    # Telegram bot token! Ask https://t.me/BotFather to get! By default, reading in telegram_token.txt
-    "token": "TELEGRAM_TOKEN",
-    # chat, chat-restricted, notebook, persona
-    'bot_mode': "admin",
-    # delete (remove cut text) or cross (cross-cut text)
-    'cutoff_mode': "delete",
-    # character json file from text-generation-webui/characters
-    'character_to_load': "Example.yaml",
-    # settings for auto-translate
-    'user_language': "en",
-}
-
 
 class TelegramBotWrapper:
     # Default error messages
@@ -43,8 +31,6 @@ class TelegramBotWrapper:
     MODE_NOTEBOOK = "notebook"
     MODE_PERSONA = "persona"
     MODE_QUERY = "query"
-    CUTOFF_DELETE = "delete"
-    CUTOFF_STRICT = "cross"
     BTN_CONTINUE = 'Continue'
     BTN_REGEN = 'Regen'
     BTN_CUTOFF = 'Cutoff'
@@ -165,29 +151,29 @@ class TelegramBotWrapper:
     users: Dict[int, User] = {}
 
     def __init__(self,
-                 bot_mode="chat",
-                 characters_dir_path="characters",
-                 presets_dir_path="presets",
-                 cutoff_mode="delete",
+                 bot_mode="admin",
                  default_char_json="Example.json",
-                 history_dir_path="extensions/telegram_bot/history",
-                 token_file_path="extensions/telegram_bot/telegram_token.txt",
                  model_lang="en",
                  user_lang="en",
-                 admins=""
+                 characters_dir_path="characters",
+                 presets_dir_path="presets",
+                 history_dir_path="extensions/telegram_bot/history",
+                 token_file_path="extensions/telegram_bot/telegram_token.txt",
+                 admins_file_path="extensions/telegram_bot/telegram_admins.txt",
+                 config_file_path="extensions/telegram_bot/telegram_config.cfg",
                  ):
         """
         Init telegram bot class. Use run_telegram_bot() to initiate bot.
         :param bot_mode: bot mode (chat, chat-restricted, notebook, persona). Default is "chat".
-        :param characters_dir_path: place where stored characters .json files. Default is "chat".
-        :param cutoff_mode: "cross" or "delete" message when "cutoff" button pressed
         :param default_char_json: name of default character.json file. Default is "chat".
+        :param model_lang: language of model
+        :param user_lang: language of conversation
+        :param characters_dir_path: place where stored characters .json files. Default is "chat".
         :param presets_dir_path: path to presets generation presets.
         :param history_dir_path: place where stored chat history. Default is "extensions/telegram_bot/history".
         :param token_file_path: path to token file. Default is "extensions/telegram_bot/telegram_token.txt".
-        :param model_lang: language of model
-        :param user_lang: language of conversation
-        :param admins: string with admins user separated by ","
+        :param admins_file_path: path to admins file - user separated by "\n"
+        :param config_file_path: path to admins file - user separated by "\n"
         :return: None
         """
         # Set paths to history, default token file, characters dir
@@ -196,22 +182,45 @@ class TelegramBotWrapper:
         self.characters_dir_path = characters_dir_path
         self.presets_dir_path = presets_dir_path
         # Set bot mode
-        self.admins_list = admins.split(",")
-        # Set bot mode
         self.bot_mode = bot_mode
         # Set default character json file
         self.default_char_json = default_char_json
-        # Set cutoff mode
-        self.cutoff_mode = cutoff_mode
         # Bot message open/close html tags. Set ["", ""] to disable.
         self.html_tag = ["<pre>", "</pre>"]
         # Set translator
         self.model_lang = model_lang
         self.user_lang = user_lang
+        # Read admins list
+        if os.path.exists(admins_file_path):
+            with open(admins_file_path, "r") as admins_file:
+                self.admins_list = admins_file.read().split()
+        # Read config_file if existed, overwrite bot config
+        print(self.html_tag)
+        if os.path.exists(config_file_path):
+            with open(config_file_path, "r") as config_file_path:
+                for s in config_file_path.read().split():
+                    if "=" in s and s.split("=")[0] == "bot_mode":
+                        self.bot_mode = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "default_char_json":
+                        self.default_char_json = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "model_lang":
+                        self.model_lang = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "user_lang":
+                        self.user_lang = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "html_tag_open":
+                        self.html_tag[0] = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "html_tag_close":
+                        self.html_tag[-1] = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "characters_dir_path":
+                        self.characters_dir_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "presets_dir_path":
+                        self.presets_dir_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "history_dir_path":
+                        self.history_dir_path = s.split("=")[-1]
+        print(self.html_tag)
         # Set buttons
         self.keyboard_len = 12
         self.button_start = None
-
         # Set dummy obj for telegram updater
         self.updater = None
         # Define generator lock to prevent GPU overloading
@@ -480,20 +489,11 @@ class TelegramBotWrapper:
     def cutoff_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
-        send_text = f"<s>{user.history[-1]}</s>"
-
         # Edit or delete last message ID (strict lines)
         last_msg_id = user.msg_id[-1]
-        if self.cutoff_mode == self.CUTOFF_STRICT:
-            context.bot.editMessageText(
-                text=send_text, chat_id=chat_id, message_id=last_msg_id, parse_mode="HTML")
-        else:
-            context.bot.deleteMessage(
-                chat_id=chat_id, message_id=last_msg_id)
-
+        context.bot.deleteMessage(chat_id=chat_id, message_id=last_msg_id)
         # Remove last message and bot answer from history
         user.pop()
-
         # If there is previous message - add buttons to previous message
         if user.msg_id:
             message_id = user.msg_id[-1]
@@ -896,11 +896,9 @@ class TelegramBotWrapper:
 
 
 def run_server():
-    # example with char load context:
-    tg_server = TelegramBotWrapper(bot_mode=params['bot_mode'],
-                                   default_char_json=params['character_to_load'],
-                                   cutoff_mode=params["cutoff_mode"],
-                                   user_lang=params["user_language"])
+    # create TelegramBotWrapper instance
+    # by default, read parameters in telegram_config.cfg
+    tg_server = TelegramBotWrapper()
     # by default - read token from extensions/telegram_bot/telegram_token.txt
     tg_server.run_telegram_bot()
 
