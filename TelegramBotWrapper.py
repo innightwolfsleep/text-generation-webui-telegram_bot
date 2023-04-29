@@ -413,9 +413,11 @@ class TelegramBotWrapper:
         if chat_id not in self.users:
             self.init_check_user(chat_id)
         if msg_id not in self.users[chat_id].msg_id:
-            send_text = msg_text + self.message_template_generator("mem_lost", chat_id)
+            send_text = self.text_preparing(msg_text, "to_user") \
+                        + self.message_template_generator("mem_lost", chat_id)
             context.bot.editMessageText(
-                text=send_text, chat_id=chat_id, message_id=msg_id, reply_markup=None)
+                text=send_text, chat_id=chat_id, message_id=msg_id,
+                reply_markup=None, parse_mode="HTML")
         else:
             self.handle_option(option, upd, context)
             self.save_user_history(chat_id, self.users[chat_id].name2)
