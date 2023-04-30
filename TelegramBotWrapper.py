@@ -85,7 +85,7 @@ class TelegramBotWrapper:
         Class stored individual tg user info (history, message sequence, etc...) and provide some actions
         """
 
-        def __init__(self, name1="You", name2="Bot", context="", greeting="Hi!"):
+        def __init__(self, name1="You", name2="Bot", context="", turn_template="", greeting="Hi!"):
             """
             Init User class with default attribute
             :param name1: username
@@ -97,6 +97,7 @@ class TelegramBotWrapper:
             self.name1: str = name1
             self.name2: str = name2
             self.context: str = context
+            self.turn_template: str = turn_template
             self.user_in: list = []  # "user input history": [["Hi!","Who are you?"]], need for regenerate option
             self.history: list = []  # "history": [["Hi!", "Hi there!","Who are you?", "I am you assistant."]],
             self.msg_id: list = []  # "msg_id": [143, 144, 145, 146],
@@ -121,6 +122,7 @@ class TelegramBotWrapper:
                 "name1": self.name1,
                 "name2": self.name2,
                 "context": self.context,
+                "turn_template": self.context,
                 "user_in": self.user_in,
                 "history": self.history,
                 "msg_id": self.msg_id,
@@ -134,6 +136,7 @@ class TelegramBotWrapper:
                 self.name1 = data["name1"]
                 self.name2 = data["name2"]
                 self.context = data["context"]
+                self.context = data["turn_template"] if "turn_template" in data else ""
                 self.user_in = data["user_in"]
                 self.history = data["history"]
                 self.msg_id = data["msg_id"]
@@ -705,7 +708,8 @@ class TelegramBotWrapper:
                                         generation_params=self.generation_params,
                                         eos_token=eos_token,
                                         stopping_strings=stopping_strings,
-                                        default_answer=answer)
+                                        default_answer=answer,
+                                        turn_template=user.turn_template)
             # If generation result zero length - return  "Empty answer."
             if len(answer) < 1:
                 answer = self.GENERATOR_EMPTY_ANSWER
@@ -756,6 +760,8 @@ class TelegramBotWrapper:
                 user.name2 = data['char_name']
             if 'name' in data:
                 user.name2 = data['name']
+            if 'turn_template' in data:
+                user.turn_template = data['turn_template']
             if 'char_persona' in data:
                 user.context += f"{data['char_name']}'s Persona: {data['char_persona'].strip()}\n"
             if 'world_scenario' in data:
