@@ -39,7 +39,8 @@ class TelegramBotWrapper:
     BTN_PRESET_LOAD = 'Preset_load:'
     # Supplementary structure
     # Internal, changeable settings
-    impersonate_prefix = "#"  # Prefix for "impersonate" messages during chatting
+    replace_prefix = "!"  # Prefix to replace last message
+    impersonate_prefix = "#"  # Prefix for "impersonate" message
     default_messages_template = {  # dict of messages templates for various situations. Use _VAR_ replacement
         "mem_lost": "<b>MEMORY LOST!</b>\nSend /start or any text for new session.",  # refers to non-existing
         "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
@@ -543,20 +544,14 @@ class TelegramBotWrapper:
     # =============================================================================
     # switching keyboard
     def load_model_button(self, upd: Update, context: CallbackContext):
-        if self.gw.get_server() is not None:
+        if self.gw.get_model_list is not None:
             query = upd.callback_query
-            model_list = self.gw.get_server().get_available_models()
+            model_list = self.gw.get_model_list()
             model_file = model_list[int(query.data.replace(self.BTN_MODEL_LOAD, ""))]
             message = context.bot.send_message(
                 chat_id=upd.effective_chat.id, text="Loading " + model_file + ". 🪄", parse_mode="HTML")
             try:
-                self.gw.get_server().unload_model()
-                self.gw.get_shared().model_name = model_file
-                if model_file != '':
-                    self.gw.get_shared().model, self.gw.get_shared().tokenizer = self.gw.get_server().load_model(
-                        self.gw.get_shared().model_name)
-                while self.gw.get_server().load_model is None:
-                    time.sleep(1)
+                self.gw.load_model(model_file)
                 send_text = self.message_template_generator(
                     request="model_loaded", chat_id=message.chat_id, custom_string=model_file)
                 context.bot.edit_message_text(
@@ -569,10 +564,10 @@ class TelegramBotWrapper:
                     text="Error during " + model_file + " loading. ⛔", parse_mode="HTML")
 
     def keyboard_models_button(self, upd: Update, context: CallbackContext, option: str):
-        if self.gw.get_server() is not None:
+        if self.gw.get_model_list() is not None:
             chat_id = upd.callback_query.message.chat.id
             msg = upd.callback_query.message
-            model_list = self.gw.get_server().get_available_models()
+            model_list = self.gw.get_model_list()
             if option == self.BTN_MODEL_LIST + "back":
                 context.bot.editMessageReplyMarkup(
                     chat_id=chat_id, message_id=msg.message_id, reply_markup=self.get_keyboard())
@@ -680,6 +675,10 @@ class TelegramBotWrapper:
             # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
             user.history.append("")
             user.history.append(user_in[len(self.impersonate_prefix):] + ":")
+        elif user_in.startswith(self.replace_prefix):
+            # If user_in starts with replace_prefix - fully replace last message
+            user.history[-1] = user_in[len(self.impersonate_prefix):]
+            return user.history[-1]
         elif user_in == "":
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
