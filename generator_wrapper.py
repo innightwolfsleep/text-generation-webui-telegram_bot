@@ -4,7 +4,15 @@ from modules.text_generation import generate_reply
 from modules import shared
 
 
-def get_answer(prompt, generation_params, eos_token, stopping_strings, default_answer):
+def get_answer(
+        prompt,
+        generation_params,
+        eos_token,
+        stopping_strings,
+        default_answer,
+        turn_template='',
+        **kwargs):
+    generation_params.update({"turn_template": turn_template})
     answer = default_answer
     generator = generate_reply(question=prompt,
                                state=generation_params,
