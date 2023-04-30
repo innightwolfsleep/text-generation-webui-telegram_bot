@@ -122,7 +122,7 @@ class TelegramBotWrapper:
                 "name1": self.name1,
                 "name2": self.name2,
                 "context": self.context,
-                "turn_template": self.context,
+                "turn_template": self.turn_template,
                 "user_in": self.user_in,
                 "history": self.history,
                 "msg_id": self.msg_id,
@@ -136,7 +136,7 @@ class TelegramBotWrapper:
                 self.name1 = data["name1"]
                 self.name2 = data["name2"]
                 self.context = data["context"]
-                self.context = data["turn_template"] if "turn_template" in data else ""
+                self.turn_template = data["turn_template"] if "turn_template" in data else ""
                 self.user_in = data["user_in"]
                 self.history = data["history"]
                 self.msg_id = data["msg_id"]
@@ -197,6 +197,8 @@ class TelegramBotWrapper:
         if os.path.exists(admins_file_path):
             with open(admins_file_path, "r") as admins_file:
                 self.admins_list = admins_file.read().split()
+        else:
+            self.admins_list = []
         # Read config_file if existed, overwrite bot config
         if os.path.exists(config_file_path):
             with open(config_file_path, "r") as config_file_path:
