@@ -7,7 +7,9 @@ import time
 from os import listdir
 from os.path import exists
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandler, CallbackQueryHandler, Updater
+from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandler, CallbackQueryHandler
+from telegram.ext import Updater
+from telegram.error import BadRequest
 from typing import Dict
 from deep_translator import GoogleTranslator as Translator
 
@@ -145,7 +147,7 @@ class TelegramBotWrapper:
 
     def __init__(self,
                  bot_mode="admin",
-                 default_char_json="Example.json",
+                 default_char_json="Example.yaml",
                  model_lang="en",
                  user_lang="en",
                  characters_dir_path="characters",
@@ -246,9 +248,19 @@ class TelegramBotWrapper:
             MessageHandler(Filters.document.mime_type("application/json"), self.cb_get_json_document))
         self.updater.dispatcher.add_handler(
             CallbackQueryHandler(self.cb_opt_button))
-
         self.updater.start_polling()
+        Thread(target=self.no_sleep_callback).start()
         print("Telegram bot started!", self.updater)
+
+    def no_sleep_callback(self):
+        while True:
+            try:
+                self.updater.bot.send_message(chat_id=99999999999, text='One message every minute')
+            except BadRequest:
+                pass
+            except Exception as error:
+                print(error)
+            time.sleep(60)
 
     # =============================================================================
     # Handlers
