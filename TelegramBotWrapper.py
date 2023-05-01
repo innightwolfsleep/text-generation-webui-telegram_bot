@@ -55,10 +55,10 @@ class TelegramBotWrapper:
     }
     generation_params = {
         'max_new_tokens': 200,
-        'seed': -1,
-        'temperature': 0.72,
-        'top_p': 0.73,
-        'top_k': 0,
+        'seed': -1.0,
+        'temperature': 0.7,
+        'top_p': 0.1,
+        'top_k': 40,
         'typical_p': 1,
         'repetition_penalty': 1.18,
         'encoder_repetition_penalty': 1,
@@ -71,9 +71,8 @@ class TelegramBotWrapper:
         'early_stopping': False,
         'add_bos_token': True,
         'ban_eos_token': False,
-        'truncation_length': 1024,
+        'truncation_length': 2048,
         'custom_stopping_strings': '',
-        'end_of_turn': '',
         'chat_prompt_size': 2048,
         'chat_generation_attempts': 1,
         'stop_at_newline': False,
@@ -688,26 +687,29 @@ class TelegramBotWrapper:
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
             user.history.append("")
-            user.history.append(user.name2 + ":")
+            user.history.append(user.name2 + ": ")
         else:
             # If not notebook/impersonate/continue mode then ordinary chat preparing
             # add "name1&2:" to user and bot message (generation from name2 point of view);
-            user.history.append(user.name1 + ":" + user_in)
+            user.history.append(user.name1 + ": " + user_in)
             user.history.append(user.name2 + ":")
         # Set eos_token and stopping_strings.
         stopping_strings = []
         eos_token = None
         if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
-            eos_token = '\n'
+            eos_token = None
+            stopping_strings = ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
         # Make prompt: context + conversation history
-        prompt = user.context + "\n".join(user.history).replace("\n\n", "\n")
-
+        prompt = user.context
+        prompt += user.name2 + ": " + user.greeting
+        prompt += "\n" + "\n".join(user.history).replace("\n\n", "\n")
         try:
             # acquire generator lock if we can
             self.generator_lock.acquire(timeout=600)
             # Generate!
             answer = self.gw.get_answer(prompt=prompt,
                                         generation_params=self.generation_params,
+                                        user=json.loads(user.to_json()),
                                         eos_token=eos_token,
                                         stopping_strings=stopping_strings,
                                         default_answer=answer,
@@ -721,8 +723,11 @@ class TelegramBotWrapper:
             # anyway, release generator lock. Then return
             self.generator_lock.release()
             if answer not in [self.GENERATOR_EMPTY_ANSWER, self.GENERATOR_FAIL]:
-                # if everything ok - add generated answer in history and return last message
-                user.history[-1] = user.history[-1] + answer
+                # if everything ok - add generated answer in history and return last
+                for end in stopping_strings:
+                    if answer.endswith(end):
+                        answer = answer[:-len(end)]
+                user.history[-1] = user.history[-1] + " " + answer
             return user.history[-1]
 
     def text_preparing(self, text, direction="to_user"):
@@ -765,19 +770,18 @@ class TelegramBotWrapper:
             if 'turn_template' in data:
                 user.turn_template = data['turn_template']
             if 'char_persona' in data:
-                user.context += f"{data['char_name']}'s Persona: {data['char_persona'].strip()}\n"
+                user.context += f"{user.name2}'s Persona: {data['char_persona'].strip()}\n"
+            if 'context' in data:
+                user.context += f"{data['context'].strip()}\n"
             if 'world_scenario' in data:
                 user.context += f"Scenario: {data['world_scenario'].strip()}\n"
             #  add dialogue examples
             if 'example_dialogue' in data:
-                user.context += f"{data['example_dialogue'].strip()}\n"
-            #  add <START>, add char greeting
-            user.context += f"{user.context.strip()}\n<START>\n"
+                user.context += f"\n{data['example_dialogue'].strip()}\n"
+            #  add char greeting
             if 'char_greeting' in data:
-                user.context += '\n' + data['char_greeting'].strip()
                 user.greeting = data['char_greeting'].strip()
             if 'greeting' in data:
-                user.context += '\n' + data['greeting'].strip()
                 user.greeting = data['greeting'].strip()
             user.context = self.replace_context_templates(user.context, user)
             user.greeting = self.replace_context_templates(user.greeting, user)

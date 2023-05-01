@@ -10,19 +10,26 @@ def get_answer(
         eos_token,
         stopping_strings,
         default_answer,
+        user,
         turn_template='',
         **kwargs):
     generation_params.update({"turn_template": turn_template})
-    answer = default_answer
+    generation_params.update({"name1": user['name1']})
+    generation_params.update({"name2": user['name2']})
+    generation_params.update({"context": user['context']})
+    generation_params.update({"greeting": user['greeting']})
     generator = generate_reply(question=prompt,
                                state=generation_params,
                                eos_token=eos_token,
                                stopping_strings=stopping_strings)
     # This is "bad" implementation of getting answer, should be reworked
+    answer = default_answer
     for a in generator:
-        answer = a
+        if isinstance(a, str):
+            answer = a
+        else:
+            answer = a[0]
     return answer
-
 
 def get_model_list():
     return server.get_available_models()
@@ -37,3 +44,4 @@ def load_model(model_file: str):
     while server.load_model is None:
         time.sleep(1)
     return True
+
