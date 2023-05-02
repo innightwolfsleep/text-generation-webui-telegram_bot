@@ -687,7 +687,7 @@ class TelegramBotWrapper:
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
             user.history.append("")
-            user.history.append(user.name2 + ": ")
+            user.history.append(user.name2 + ":")
         else:
             # If not notebook/impersonate/continue mode then ordinary chat preparing
             # add "name1&2:" to user and bot message (generation from name2 point of view);
