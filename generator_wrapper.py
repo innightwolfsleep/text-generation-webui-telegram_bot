@@ -1,6 +1,7 @@
 import time
 import server
 from modules.text_generation import generate_reply
+from modules.text_generation import encode
 from modules import shared
 
 
@@ -30,6 +31,11 @@ def get_answer(
         else:
             answer = a[0]
     return answer
+
+
+def tokens_count(text: str):
+    return len(encode(text)[0])
+
 
 def get_model_list():
     return server.get_available_models()
