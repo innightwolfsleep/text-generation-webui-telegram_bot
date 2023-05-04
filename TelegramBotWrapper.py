@@ -176,7 +176,8 @@ class TelegramBotWrapper:
 
     def __init__(self,
                  bot_mode="admin",
-                 default_char_json="Example.yaml",
+                 default_char="Example.yaml",
+                 default_preset="LLaMA-Precise.txt",
                  model_lang="en",
                  user_lang="en",
                  characters_dir_path="characters",
@@ -190,7 +191,8 @@ class TelegramBotWrapper:
         """
         Init telegram bot class. Use run_telegram_bot() to initiate bot.
         :param bot_mode: bot mode (chat, chat-restricted, notebook, persona). Default is "chat".
-        :param default_char_json: name of default character.json file. Default is "chat".
+        :param default_char: name of default character.json file. Default is "chat".
+        :param default_preset: name of default preset file.
         :param model_lang: language of model
         :param user_lang: language of conversation
         :param characters_dir_path: place where stored characters .json files. Default is "chat".
@@ -212,7 +214,8 @@ class TelegramBotWrapper:
         # Set bot mode
         self.bot_mode = bot_mode
         # Set default character json file
-        self.default_char_json = default_char_json
+        self.default_char = default_char
+        self.default_preset = default_preset
         # Set translator
         self.model_lang = model_lang
         self.user_lang = user_lang
@@ -228,8 +231,10 @@ class TelegramBotWrapper:
                 for s in config_file_path.read().split():
                     if "=" in s and s.split("=")[0] == "bot_mode":
                         self.bot_mode = s.split("=")[-1]
-                    if "=" in s and s.split("=")[0] == "default_char_json":
-                        self.default_char_json = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "default_preset":
+                        self.default_preset = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "default_char":
+                        self.default_char = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "model_lang":
                         self.model_lang = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "user_lang":
@@ -246,6 +251,7 @@ class TelegramBotWrapper:
                         self.history_dir_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "token_file_path":
                         self.token_file_path = s.split("=")[-1]
+        self.load_preset(self.default_preset)
 
     # =============================================================================
     # Run bot with token! Initiate updater obj!
@@ -359,7 +365,7 @@ class TelegramBotWrapper:
         if chat_id not in self.users:
             # Load default character
             self.users[chat_id] = self.load_character_file(
-                char_file=self.default_char_json)
+                char_file=self.default_char)
             # Load user history
             user_history_path = f'{self.history_dir_path}/{str(chat_id)}.json'
             user_char_history_path = f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id].name2}.json'
@@ -643,26 +649,31 @@ class TelegramBotWrapper:
     def load_presets_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
         preset_char_num = int(option.replace(self.BTN_PRESET_LOAD, ""))
-        preset = self.parse_presets_dir()[preset_char_num]
-        with open(self.presets_dir_path + "/" + preset, "r") as preset_file:
-            for line in preset_file.readlines():
-                name, value = line.replace("\n", "").replace("\r", "").split("=")
-                if name in self.generation_params:
-                    if type(self.generation_params[name]) is int:
-                        self.generation_params[name] = int(float(value))
-                    elif type(self.generation_params[name]) is float:
-                        self.generation_params[name] = float(value)
-                    elif type(self.generation_params[name]) is str:
-                        self.generation_params[name] = str(value)
-                    elif type(self.generation_params[name]) is bool:
-                        self.generation_params[name] = bool(value)
-                    elif type(self.generation_params[name]) is list:
-                        self.generation_params[name] = list(value.split(","))
-        send_text = self.message_template_generator("preset_loaded", chat_id, preset)
+        self.default_preset = self.parse_presets_dir()[preset_char_num]
+        self.load_preset(preset=self.default_preset)
+        send_text = self.message_template_generator("preset_loaded", chat_id, self.default_preset)
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text, message_id=message_id, chat_id=chat_id,
             parse_mode="HTML", reply_markup=self.get_options_keyboard(chat_id))
+
+    def load_preset(self, preset):
+        preset_path = self.presets_dir_path + "/" + preset
+        if os.path.exists(preset_path):
+            with open(preset_path, "r") as preset_file:
+                for line in preset_file.readlines():
+                    name, value = line.replace("\n", "").replace("\r", "").split("=")
+                    if name in self.generation_params:
+                        if type(self.generation_params[name]) is int:
+                            self.generation_params[name] = int(float(value))
+                        elif type(self.generation_params[name]) is float:
+                            self.generation_params[name] = float(value)
+                        elif type(self.generation_params[name]) is str:
+                            self.generation_params[name] = str(value)
+                        elif type(self.generation_params[name]) is bool:
+                            self.generation_params[name] = bool(value)
+                        elif type(self.generation_params[name]) is list:
+                            self.generation_params[name] = list(value.split(","))
 
     def keyboard_presets_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
