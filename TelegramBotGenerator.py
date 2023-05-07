@@ -19,6 +19,7 @@ def get_answer(
     generation_params.update({"name2": user['name2']})
     generation_params.update({"context": user['context']})
     generation_params.update({"greeting": user['greeting']})
+    generation_params.update({"stream": False})
     generator = generate_reply(question=prompt,
                                state=generation_params,
                                eos_token=eos_token,
