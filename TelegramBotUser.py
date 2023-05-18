@@ -15,7 +15,7 @@ class TelegramBotUser:
         "char_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_ ",  # When new char loaded
         "preset_loaded": "LOADED PRESET: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
         "model_loaded": "LOADED MODEL: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
-        "mem_reset": "MEMORY RESET!\nSend /start or any text for new session.",  # When history cleared
+        "mem_reset": "MEMORY RESET!\n_OPEN_TAG__GREETING__CLOSE_TAG_",  # When history cleared
         "hist_to_chat": "To load history - forward message to this chat",  # download history
         "hist_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_"
                        "\n\nLAST MESSAGE:\n_OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # load history
