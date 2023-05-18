@@ -28,8 +28,8 @@ FEATURES:
 - buttons: continue previous message, regenerate last message, remove last messages from history, reset history button, new char loading menu
 - you can load new characters from text-generation-webui\characters with "/load" command!!!
 - you can load new model during conversation with /models 
-- chatting # prefix for impersonate: "#You" or "#Castle guard" or "#Alice thoughts about me"
-- "!" prefix to replace last bot message
+- chatting "#" or "+" prefix for impersonate: "#You" or "+Castle guard" or "#Alice thoughts about me"
+- "!" or "-" prefix to replace last bot message
 - save/load history in chat by downloading/forwarding to chat .json file
 - integrated auto-translate (you can set model/user language parameter) 
 
