@@ -51,8 +51,8 @@ class TelegramBotWrapper:
     BTN_OPTION = "options"
     # Supplementary structure
     # Internal, changeable settings
-    replace_prefix = "!"  # Prefix to replace last message
-    impersonate_prefix = "#"  # Prefix for "impersonate" message
+    replace_prefixes = ["!", "-"]  # Prefix to replace last message
+    impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
     # Language list
     language_dict = {"en": "🇬🇧", "ru": "🇷🇺", "ja": "🇯🇵", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪", "th": "🇹🇭",
                      "tr": "🇹🇷", "it": "🇮🇹", "hi": "🇮🇳", "zh-CN": "🇨🇳", "ar": "🇸🇾"}
@@ -488,6 +488,7 @@ class TelegramBotWrapper:
         user.reset_history()
         send_text = self.message_template_generator("mem_reset", chat_id)
         context.bot.send_message(chat_id=chat_id, text=send_text,
+                                 reply_markup=self.get_options_keyboard(chat_id),
                                  parse_mode="HTML")
 
     # =============================================================================
@@ -677,25 +678,26 @@ class TelegramBotWrapper:
         if self.bot_mode == "notebook":
             # If notebook mode - append to history only user_in, no additional preparing;
             user.history.append(user_in)
-        elif user_in.startswith(self.impersonate_prefix):
-            # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
-            # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
-            user.history.append("")
-            user.history.append(user_in[len(self.impersonate_prefix):] + ":")
-        elif user_in.startswith(self.replace_prefix):
-            # If user_in starts with replace_prefix - fully replace last message
-            user.history[-1] = user_in[len(self.impersonate_prefix):]
-            return user.history[-1]
         elif user_in == "":
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
             user.history.append("")
             user.history.append(user.name2 + ":")
+        elif user_in[0] in self.impersonate_prefixes:
+            # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
+            # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
+            user.history.append("")
+            user.history.append(user_in[1:] + ":")
+        elif user_in[0] in self.replace_prefixes:
+            # If user_in starts with replace_prefix - fully replace last message
+            user.history[-1] = user_in[1:]
+            return user.history[-1]
         else:
             # If not notebook/impersonate/continue mode then ordinary chat preparing
             # add "name1&2:" to user and bot message (generation from name2 point of view);
             user.history.append(user.name1 + ": " + user_in)
             user.history.append(user.name2 + ":")
+
         # Set eos_token and stopping_strings.
         stopping_strings = []
         eos_token = None
@@ -710,9 +712,11 @@ class TelegramBotWrapper:
         context_len = Generator.tokens_count(context)
         if available_len >= context_len:
             available_len -= context_len
+
         example = user.example + "\n<START>\n"
         greeting = "\n" + user.name2 + ": " + user.greeting
         conversation = [example, greeting] + user.history
+
         for s in reversed(conversation):
             s = "\n" + s
             s_len = Generator.tokens_count(s)
@@ -761,6 +765,7 @@ class TelegramBotWrapper:
                 text = Translator(
                     source=self.model_lang,
                     target=user_language).translate(text)
+
         # Add HTML tags and other...
         if direction not in ["to_model", "no_html"]:
             text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
