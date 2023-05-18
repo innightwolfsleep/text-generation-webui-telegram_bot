@@ -1,8 +1,17 @@
-import time
-import server
-from modules.text_generation import generate_reply
-from modules.text_generation import encode
-from modules import shared
+from llama_cpp import Llama
+import os
+
+#  Place where path to LLM file stored
+telegram_llm_model_path_file = "telegram_llm_model_path.txt"
+
+
+n_ctx = 8196
+seed = 0
+n_gpu_layers = 0
+#  Get llm_generator
+with open(telegram_llm_model_path_file, "r") as model_path_file:
+    data = model_path_file.read().rstrip()
+    llm_generator: Llama = Llama(model_path=data, n_ctx=n_ctx, seed=seed, n_gpu_layers=n_gpu_layers)
 
 
 def get_answer(
@@ -11,44 +20,37 @@ def get_answer(
         eos_token,
         stopping_strings,
         default_answer,
-        user,
         turn_template='',
         **kwargs):
-    generation_params.update({"turn_template": turn_template})
-    generation_params.update({"name1": user['name1']})
-    generation_params.update({"name2": user['name2']})
-    generation_params.update({"context": user['context']})
-    generation_params.update({"greeting": user['greeting']})
-    generation_params.update({"stream": False})
-    generator = generate_reply(question=prompt,
-                               state=generation_params,
-                               eos_token=eos_token,
-                               stopping_strings=stopping_strings)
-    # This is "bad" implementation of getting answer, should be reworked
     answer = default_answer
-    for a in generator:
-        if isinstance(a, str):
-            answer = a
-        else:
-            answer = a[0]
+    try:
+        answer = llm_generator.create_completion(
+            prompt=prompt,
+            temperature=generation_params["temperature"],
+            top_p=generation_params["top_p"],
+            top_k=generation_params["top_k"],
+            repeat_penalty=generation_params["repetition_penalty"],
+            stop=stopping_strings,
+            max_tokens=generation_params["max_new_tokens"],
+            echo=True)
+        answer = answer["choices"][0]["text"].replace(prompt, "")
+    except Exception as exception:
+        print("generator_wrapper get answer error ", exception)
     return answer
 
 
 def tokens_count(text: str):
-    return len(encode(text)[0])
+    return len(llm_generator.tokenize(text.encode(encoding="utf-8", errors="strict")))
 
 
 def get_model_list():
-    return server.get_available_models()
+    bins = []
+    for i in os.listdir("models"):
+        if i.endswith(".bin"):
+            bins.append(i)
+    return bins
 
 
 def load_model(model_file: str):
-    server.unload_model()
-    server.model_name = model_file
-    if model_file != '':
-        shared.model, shared.tokenizer = server.load_model(
-            shared.model_name)
-    while server.load_model is None:
-        time.sleep(1)
-    return True
-
+    with open("models\\" + model_file, "r") as model:
+        llm_generator: Llama = Llama(model_path=model.read(), n_ctx=n_ctx, seed=seed)
