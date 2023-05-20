@@ -4,6 +4,7 @@ from threading import Thread, Lock
 from pathlib import Path
 import json
 import time
+from re import split
 from os import listdir
 from os.path import exists
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -35,6 +36,8 @@ class TelegramBotWrapper:
     MODE_PERSONA = "persona"
     MODE_QUERY = "query"
     BTN_CONTINUE = 'Continue'
+    BTN_NEXT = 'Next'
+    BTN_DEL_WORD = 'Delete_one_word'
     BTN_REGEN = 'Regen'
     BTN_CUTOFF = 'Cutoff'
     BTN_RESET = 'Reset'
@@ -49,6 +52,8 @@ class TelegramBotWrapper:
     BTN_LANG_LIST = 'Language_list:'
     BTN_LANG_LOAD = 'Language_load:'
     BTN_OPTION = "options"
+    GENERATOR_MODE_NEXT = "/send_next_message"
+    GENERATOR_MODE_CONTINUE = "/continue_last_message"
     # Supplementary structure
     # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
@@ -63,7 +68,7 @@ class TelegramBotWrapper:
     # Bot message open/close html tags. Set ["", ""] to disable.
     html_tag = ["<pre>", "</pre>"]
     generation_params = {
-        'max_new_tokens': 200,
+        'max_new_tokens': 256,
         'seed': -1.0,
         'temperature': 0.7,
         'top_p': 0.1,
@@ -80,9 +85,9 @@ class TelegramBotWrapper:
         'early_stopping': False,
         'add_bos_token': True,
         'ban_eos_token': False,
-        'truncation_length': 1024,
+        'truncation_length': 1200,
         'custom_stopping_strings': '',
-        'chat_prompt_size': 1024,
+        'chat_prompt_size': 1200,
         'chat_generation_attempts': 1,
         'stop_at_newline': False,
         'skip_special_tokens': True,
@@ -347,7 +352,7 @@ class TelegramBotWrapper:
         if chat_id not in self.users:
             self.init_check_user(chat_id)
         if msg_id not in self.users[chat_id].msg_id \
-                and option in [self.BTN_CONTINUE, self.BTN_REGEN, self.BTN_CUTOFF]:
+                and option in [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
             send_text = self.text_preparing(msg_text, self.users[chat_id].language, "to_user") \
                         + self.message_template_generator("mem_lost", chat_id)
             context.bot.editMessageText(
@@ -363,6 +368,10 @@ class TelegramBotWrapper:
             self.reset_history_button(upd=upd, context=context)
         elif option == self.BTN_CONTINUE:
             self.continue_message_button(upd=upd, context=context)
+        elif option == self.BTN_NEXT:
+            self.next_message_button(upd=upd, context=context)
+        elif option == self.BTN_DEL_WORD:
+            self.delete_word_button(upd=upd, context=context)
         elif option == self.BTN_REGEN:
             self.regenerate_message_button(upd=upd, context=context)
         elif option == self.BTN_CUTOFF:
@@ -405,7 +414,7 @@ class TelegramBotWrapper:
         message_id = upd.callback_query.message.message_id
         context.bot.deleteMessage(chat_id=chat_id, message_id=message_id)
 
-    def continue_message_button(self, upd: Update, context: CallbackContext):
+    def next_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
 
         # send "typing"
@@ -416,12 +425,52 @@ class TelegramBotWrapper:
             parse_mode="HTML")
 
         # get answer and replace message text!
-        answer = self.generate_answer(user_in='', chat_id=chat_id)
+        answer = self.generate_answer(user_in=self.GENERATOR_MODE_NEXT, chat_id=chat_id)
         answer = self.text_preparing(answer, self.users[chat_id].language, "to_user")
         context.bot.editMessageText(
             text=answer, chat_id=chat_id, message_id=message.message_id,
             reply_markup=self.get_keyboard(), parse_mode="HTML")
         self.users[chat_id].msg_id.append(message.message_id)
+
+    def continue_message_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        user = self.users[chat_id]
+        last_message = user.history[-1]
+        message = upd.callback_query.message
+
+        # add pretty "typing" to message text
+        send_text = self.text_preparing(message.text, self.users[chat_id].language, "to_user")
+        send_text += self.message_template_generator('typing', chat_id)
+        context.bot.editMessageText(
+            text=send_text, chat_id=chat_id, message_id=message.message_id,
+            parse_mode="HTML")
+
+        # get answer and replace message text!
+        answer = self.generate_answer(user_in=self.GENERATOR_MODE_CONTINUE, chat_id=chat_id)
+        answer = self.text_preparing(answer, self.users[chat_id].language, "to_user")
+        context.bot.editMessageText(
+            text=answer, chat_id=chat_id, message_id=message.message_id,
+            reply_markup=self.get_keyboard(), parse_mode="HTML")
+        self.users[chat_id].msg_id.append(message.message_id)
+
+    def delete_word_button(self, upd: Update, context: CallbackContext):
+        chat_id = upd.callback_query.message.chat.id
+        user = self.users[chat_id]
+        # get and change last message
+        last_message = user.history[-1]
+        last_word = split(r"\n+| +", last_message)[-1]
+        new_last_message = last_message[:-(len(last_word))]
+        new_last_message = new_last_message.strip()
+        user.history[-1] = new_last_message
+        send_text = self.text_preparing(new_last_message, self.users[chat_id].language, "to_user")
+        # If there is previous message - add buttons to previous message
+        if user.msg_id:
+            message_id = user.msg_id[-1]
+            context.bot.editMessageText(
+                text=send_text, chat_id=chat_id, message_id=message_id,
+                reply_markup=self.get_keyboard(), parse_mode="HTML")
+        self.users[chat_id].save_user_history(
+            chat_id, user.name2, self.history_dir_path)
 
     def regenerate_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -488,6 +537,7 @@ class TelegramBotWrapper:
         user.reset_history()
         send_text = self.message_template_generator("mem_reset", chat_id)
         context.bot.send_message(chat_id=chat_id, text=send_text,
+                                 reply_markup=self.get_options_keyboard(chat_id),
                                  parse_mode="HTML")
 
     # =============================================================================
@@ -664,36 +714,43 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # answer generator
-    def generate_answer(self, user_in, chat_id):
+    def generate_answer(self, user_in, chat_id, mode=""):
         # if generation will fail, return "fail" answer
         answer = self.GENERATOR_FAIL
         user = self.users[chat_id]
-        # Append user_in history
-        user.user_in.append(user_in)
 
         # Preprocessing: add user_in to history in right order:
         if self.bot_mode in [self.MODE_QUERY]:
             user.history = []
         if self.bot_mode == "notebook":
             # If notebook mode - append to history only user_in, no additional preparing;
+            user.user_in.append(user_in)
             user.history.append(user_in)
-        elif user_in == "":
+        elif user_in == self.GENERATOR_MODE_NEXT:
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
+            user.user_in.append(user_in)
             user.history.append("")
             user.history.append(user.name2 + ":")
+        elif user_in == self.GENERATOR_MODE_CONTINUE:
+            # if user_in is "" - no user text, it is like continue generation
+            # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
+            pass
         elif user_in[0] in self.impersonate_prefixes:
             # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
             # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
+            user.user_in.append(user_in)
             user.history.append("")
             user.history.append(user_in[1:] + ":")
         elif user_in[0] in self.replace_prefixes:
             # If user_in starts with replace_prefix - fully replace last message
+            user.user_in.append(user_in)
             user.history[-1] = user_in[1:]
             return user.history[-1]
         else:
             # If not notebook/impersonate/continue mode then ordinary chat preparing
             # add "name1&2:" to user and bot message (generation from name2 point of view);
+            user.user_in.append(user_in)
             user.history.append(user.name1 + ": " + user_in)
             user.history.append(user.name2 + ":")
 
@@ -827,7 +884,11 @@ class TelegramBotWrapper:
                 [
                     [
                         InlineKeyboardButton(
+                            text="▶Next", callback_data=self.BTN_NEXT),
+                        InlineKeyboardButton(
                             text="➡Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="⬅Del word", callback_data=self.BTN_DEL_WORD),
                         InlineKeyboardButton(
                             text="♻Regenerate", callback_data=self.BTN_REGEN),
                         InlineKeyboardButton(
@@ -842,7 +903,11 @@ class TelegramBotWrapper:
                 [
                     [
                         InlineKeyboardButton(
-                            text="▶Continue", callback_data=self.BTN_CONTINUE),
+                            text="▶Next", callback_data=self.BTN_NEXT),
+                        InlineKeyboardButton(
+                            text="➡Continue", callback_data=self.BTN_CONTINUE),
+                        InlineKeyboardButton(
+                            text="⬅Del word", callback_data=self.BTN_DEL_WORD),
                         InlineKeyboardButton(
                             text="🔄Regenerate", callback_data=self.BTN_REGEN),
                         InlineKeyboardButton(
@@ -857,7 +922,7 @@ class TelegramBotWrapper:
                 [
                     [
                         InlineKeyboardButton(
-                            text="▶Continue", callback_data=self.BTN_CONTINUE),
+                            text="▶Next", callback_data=self.BTN_NEXT),
                         InlineKeyboardButton(
                             text="🚫Reset memory", callback_data=self.BTN_RESET),
                     ]
