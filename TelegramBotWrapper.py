@@ -146,7 +146,7 @@ class TelegramBotWrapper:
         # Read config_file if existed, overwrite bot config
         if os.path.exists(config_file_path):
             with open(config_file_path, "r") as config_file_path:
-                for s in config_file_path.read().split():
+                for s in config_file_path.read().replace("\r", "").split("\n"):
                     if "=" in s and s.split("=")[0] == "bot_mode":
                         self.bot_mode = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "default_preset":
