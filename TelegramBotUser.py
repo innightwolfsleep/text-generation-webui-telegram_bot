@@ -1,4 +1,6 @@
 import json
+from os.path import exists
+
 import yaml
 from pathlib import Path
 
@@ -22,6 +24,7 @@ class TelegramBotUser:
     }
 
     def __init__(self,
+                 char_file="",
                  name1="You",
                  name2="Bot",
                  context="",
@@ -37,6 +40,7 @@ class TelegramBotUser:
         :param greeting: just greeting message from bot
         :return: None
         """
+        self.char_file: str = char_file
         self.name1: str = name1
         self.name2: str = name2
         self.context: str = context
@@ -64,6 +68,7 @@ class TelegramBotUser:
     def to_json(self):
         #  Converts all data to json string
         return json.dumps({
+            "char_file": self.char_file,
             "name1": self.name1,
             "name2": self.name2,
             "context": self.context,
@@ -80,6 +85,7 @@ class TelegramBotUser:
         #  Converts json string to internal values
         data = json.loads(s)
         try:
+            self.char_file = data["char_file"] if "char_file" in data else ""
             self.name1 = data["name1"] if "name1" in data else "You"
             self.name2 = data["name2"] if "name2" in data else "Bot"
             self.context = data["context"] if "context" in data else ""
@@ -106,6 +112,7 @@ class TelegramBotUser:
                 else:
                     data = yaml.safe_load(user_file.read())
             #  load persona and scenario
+            self.char_file = char_file
             if 'you_name' in data:
                 self.name1 = data['you_name']
             if 'char_name' in data:
@@ -147,24 +154,37 @@ class TelegramBotUser:
         s = s.replace('<USER>', self.name1)
         return s
 
+    def find_and_load_user_char_history(self, chat_id, history_dir_path: str):
+        chat_id = str(chat_id)
+        user_char_history_path = f'{history_dir_path}/{str(chat_id)}{self.char_file}.json'
+        user_char_history_old_path = f'{history_dir_path}/{str(chat_id)}{self.name2}.json'
+        if exists(user_char_history_path):
+            self.load_user_history(user_char_history_path)
+        elif exists(user_char_history_old_path):
+            self.load_user_history(user_char_history_old_path)
+
     def load_user_history(self, file_path):
         try:
-            with open(file_path, 'r', encoding='utf-8') as user_file:
-                data = user_file.read()
-            self.from_json(data)
+            if exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as user_file:
+                    data = user_file.read()
+                self.from_json(data)
+                if self.char_file == "":
+                    self.char_file = self.name2
         except Exception as exception:
             print(f"load_user_history: {exception}")
 
-    def save_user_history(self, chat_id, char_name="", history_dir_path="history"):
+    def save_user_history(self, chat_id, history_dir_path="history"):
         """
         Save two history file -user+char and default user history files and return their path
         :param chat_id: user chat_id
-        :param char_name: char name (or additional data)
         :param history_dir_path: history dir path
         :return: user_char_file_path, default_user_file_path
         """
+        if self.char_file == "":
+            self.char_file = self.name2
         user_data = self.to_json()
-        user_char_file_path = Path(f"{history_dir_path}/{chat_id}{char_name}.json")
+        user_char_file_path = Path(f"{history_dir_path}/{chat_id}{self.char_file}.json")
         with user_char_file_path.open("w", encoding="utf-8") as user_file:
             user_file.write(user_data)
 
