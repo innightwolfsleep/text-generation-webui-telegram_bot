@@ -222,7 +222,7 @@ class TelegramBotWrapper:
         Thread(target=self.tr_opt_button, args=(upd, context)).start()
 
     def cb_get_json_document(self, upd, context):
-        Thread(target=self.load_json_message, args=(upd, context)).start()
+        Thread(target=self.load_json_document, args=(upd, context)).start()
 
     # =============================================================================
     # Additional telegram actions
@@ -289,15 +289,10 @@ class TelegramBotWrapper:
             self.users.update({chat_id: User()})
             self.users[chat_id].load_character_file(characters_dir_path=self.characters_dir_path,
                                                     char_file=self.default_char)
-            # Load user history
-            user_history_path = f'{self.history_dir_path}/{str(chat_id)}.json'
-            user_char_history_path = f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id].name2}.json'
-            if exists(user_history_path):
-                self.users[chat_id].load_user_history(user_history_path)
-            elif exists(user_char_history_path):
-                self.users[chat_id].load_user_history(user_char_history_path)
+            self.users[chat_id].load_user_history(f'{self.history_dir_path}/{str(chat_id)}.json')
+            self.users[chat_id].find_and_load_user_char_history(chat_id, self.history_dir_path)
 
-    def load_json_message(self, upd: Update, context: CallbackContext):
+    def load_json_document(self, upd: Update, context: CallbackContext):
         chat_id = upd.message.chat.id
         self.init_check_user(chat_id)
         default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
@@ -337,8 +332,7 @@ class TelegramBotWrapper:
         # Add message ID to message history
         self.users[chat_id].msg_id.append(message.message_id)
         # Save user history
-        self.users[chat_id].save_user_history(
-            chat_id, self.users[chat_id].name2, self.history_dir_path)
+        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
         return True
 
     # =============================================================================
@@ -361,8 +355,7 @@ class TelegramBotWrapper:
                 reply_markup=None, parse_mode="HTML")
         else:
             self.handle_option(option, upd, context)
-            self.users[chat_id].save_user_history(
-                chat_id, self.users[chat_id].name2, self.history_dir_path)
+            self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
 
     def handle_option(self, option, upd, context):
         if option == self.BTN_RESET:
@@ -435,8 +428,6 @@ class TelegramBotWrapper:
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
-        user = self.users[chat_id]
-        last_message = user.history[-1]
         message = upd.callback_query.message
 
         # add pretty "typing" to message text
@@ -470,8 +461,7 @@ class TelegramBotWrapper:
             context.bot.editMessageText(
                 text=send_text, chat_id=chat_id, message_id=message_id,
                 reply_markup=self.get_keyboard(), parse_mode="HTML")
-        self.users[chat_id].save_user_history(
-            chat_id, user.name2, self.history_dir_path)
+        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
 
     def regenerate_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -509,8 +499,7 @@ class TelegramBotWrapper:
             context.bot.editMessageReplyMarkup(
                 chat_id=chat_id, message_id=message_id,
                 reply_markup=self.get_keyboard())
-        self.users[chat_id].save_user_history(
-            chat_id, user.name2, self.history_dir_path)
+        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
 
     def download_json_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -646,9 +635,7 @@ class TelegramBotWrapper:
         self.users[chat_id].load_character_file(characters_dir_path=self.characters_dir_path,
                                                 char_file=char_file)
         #  If there was conversation with this char - load history
-        user_char_history_path = f'{self.history_dir_path}/{str(chat_id)}{self.users[chat_id].name2}.json'
-        if exists(user_char_history_path):
-            self.users[chat_id].load_user_history(user_char_history_path)
+        self.users[chat_id].find_and_load_user_char_history(chat_id, self.history_dir_path)
         if len(self.users[chat_id].history) > 0:
             send_text = self.message_template_generator(
                 "hist_loaded", chat_id, self.users[chat_id].history[-1])
@@ -672,6 +659,9 @@ class TelegramBotWrapper:
         #  get keyboard list shift
         shift = int(option.replace(self.BTN_CHAR_LIST, ""))
         char_list = self.parse_characters_dir()
+        if shift == -9999 and self.users[chat_id].char_file in char_list:
+            shift = char_list.index(self.users[chat_id].char_file)
+        print(shift, self.users[chat_id].char_file)
         #  create chars list
         characters_buttons = self.get_switch_keyboard(
             opt_list=char_list, shift=shift,
@@ -715,7 +705,7 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # answer generator
-    def generate_answer(self, user_in, chat_id, mode=""):
+    def generate_answer(self, user_in, chat_id):
         # if generation will fail, return "fail" answer
         answer = self.GENERATOR_FAIL
         user = self.users[chat_id]
@@ -850,7 +840,7 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text="💾Save", callback_data=self.BTN_DOWNLOAD),
                         InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
+                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"),
                         InlineKeyboardButton(
                             text="🗑Reset", callback_data=self.BTN_RESET),
                         InlineKeyboardButton(
@@ -871,7 +861,7 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text="💾Save", callback_data=self.BTN_DOWNLOAD),
                         InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "0"),
+                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"),
                         InlineKeyboardButton(
                             text="🗑Reset", callback_data=self.BTN_RESET),
                         InlineKeyboardButton(
@@ -945,10 +935,14 @@ class TelegramBotWrapper:
                             keyboard_rows=6,
                             keyboard_colum=2
                             ):
+        # find shift
         opt_list_length = len(opt_list)
         keyboard_length = keyboard_rows * keyboard_colum
-        if shift >= opt_list_length or shift < 0:
+        if shift >= opt_list_length - keyboard_length:
+            shift = opt_list_length - keyboard_length
+        if shift < 0:
             shift = 0
+        # append list
         characters_buttons = []
         column = 0
         for i in range(shift, keyboard_length + shift):
