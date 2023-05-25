@@ -19,12 +19,15 @@ def get_answer(
     generation_params.update({"name2": user['name2']})
     generation_params.update({"context": user['context']})
     generation_params.update({"greeting": user['greeting']})
+    generation_params.update({"epsilon_cutoff": 0})
+    generation_params.update({"eta_cutoff": 0})
     generation_params.update({"stream": False})
     stopping_strings.append(r"\end{code}")
     generator = generate_reply(question=prompt,
                                state=generation_params,
                                eos_token=eos_token,
-                               stopping_strings=stopping_strings)
+                               stopping_strings=stopping_strings, 
+                               is_chat=False)
     # This is "bad" implementation of getting answer, should be reworked
     answer = default_answer
     for a in generator:
