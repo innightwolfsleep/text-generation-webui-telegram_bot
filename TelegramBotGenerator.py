@@ -19,9 +19,13 @@ def get_answer(
     generation_params.update({"name2": user['name2']})
     generation_params.update({"context": user['context']})
     generation_params.update({"greeting": user['greeting']})
-    generation_params.update({"epsilon_cutoff": 0})
-    generation_params.update({"eta_cutoff": 0})
-    generation_params.update({"stream": False})
+    generation_params.update({"epsilon_cutoff": 0,
+                              "eta_cutoff": 0,
+                              'mirostat_mode': 0,
+                              'mirostat_tau': 5,
+                              'mirostat_eta': 0.1,
+                              "stream": False,
+                             })
     stopping_strings.append(r"\end{code}")
     generator = generate_reply(question=prompt,
                                state=generation_params,
