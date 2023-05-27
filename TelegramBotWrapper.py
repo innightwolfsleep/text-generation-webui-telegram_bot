@@ -769,8 +769,6 @@ class TelegramBotWrapper:
         if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
             stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
 
-        print("stopping_strings", stopping_strings)
-        print("self.stopping_strings", self.stopping_strings)
         # Make prompt: context + example + conversation history
         available_len = self.generation_params["truncation_length"]
         prompt = ""
