@@ -1,5 +1,6 @@
 import time
 import server
+from modules.utils import get_available_models
 from modules.text_generation import generate_reply
 from modules.text_generation import encode
 from modules import shared
@@ -26,7 +27,6 @@ def get_answer(
                               'mirostat_eta': 0.1,
                               "stream": False,
                              })
-    stopping_strings.append(r"\end{code}")
     generator = generate_reply(question=prompt,
                                state=generation_params,
                                eos_token=eos_token,
@@ -46,7 +46,7 @@ def tokens_count(text: str):
 
 
 def get_model_list():
-    return server.get_available_models()
+    return get_available_models()
 
 
 def load_model(model_file: str):

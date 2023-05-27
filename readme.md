@@ -5,8 +5,10 @@
 This is extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) providing cai-chat like telegram bot interface.
 
 REQUIREMENTS:
+- [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui)
 - python-telegram-bot==13.15
-- pyyaml
+- pyyaml _(already in text-generation-webui requirements)_
+- deep-translator _(already in text-generation-webui requirements)_
 
 HOW TO INSTALL:
 1) clone this repo to "text-generation-webui\extensions"
@@ -14,7 +16,7 @@ HOW TO INSTALL:
 cd text-generation-webui
 git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot extensions\telegram_bot
 ```
-2) install "python-telegram-bot==13.15" module to your textgen environment. (Easiest way add in start script "**call pip install -r extensions\telegram_bot\requirements.txt**" before "python webui.py")
+2) install "python-telegram-bot==13.15" module to your textgen environment. (run **cmd_windows.bat** or **cmd_linux.sh** and send run **pip install -r extensions\telegram_bot\requirements.txt**)
 
 HOW TO USE:
 1) add your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt" (ask https://t.me/BotFather how to get token)
@@ -30,6 +32,7 @@ FEATURES:
 - you can load new model during conversation with /models 
 - chatting "#" or "+" prefix for impersonate: "#You" or "+Castle guard" or "#Alice thoughts about me"
 - "!" or "-" prefix to replace last bot message
+- "++" prefix permanently replace bot name during chat (switch conversation to another character)
 - save/load history in chat by downloading/forwarding to chat .json file
 - integrated auto-translate (you can set model/user language parameter) 
 
