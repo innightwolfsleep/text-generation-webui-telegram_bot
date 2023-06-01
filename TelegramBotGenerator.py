@@ -26,6 +26,8 @@ def get_answer(
                               'mirostat_tau': 5,
                               'mirostat_eta': 0.1,
                               "stream": False,
+                              'tfs': 1.0,
+                              'top_a': 0.0,
                              })
     generator = generate_reply(question=prompt,
                                state=generation_params,
