@@ -290,9 +290,11 @@ class TelegramBotWrapper:
         return char_list
 
     def parse_presets_dir(self) -> list:
+        print(self.presets_dir_path)
+        print(listdir(self.presets_dir_path))
         preset_list = []
         for f in listdir(self.presets_dir_path):
-            if f.endswith('.txt'):
+            if f.endswith('.txt') or f.endswith('.yaml'):
                 preset_list.append(f)
         return preset_list
 
@@ -605,7 +607,7 @@ class TelegramBotWrapper:
         if os.path.exists(preset_path):
             with open(preset_path, "r") as preset_file:
                 for line in preset_file.readlines():
-                    name, value = line.replace("\n", "").replace("\r", "").split("=")
+                    name, value = line.replace("\n", "").replace("\r", "").replace(": ", "=").split("=")
                     if name in self.generation_params:
                         if type(self.generation_params[name]) is int:
                             self.generation_params[name] = int(float(value))
@@ -769,8 +771,6 @@ class TelegramBotWrapper:
         if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
             stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
 
-        print("stopping_strings", stopping_strings)
-        print("self.stopping_strings", self.stopping_strings)
         # Make prompt: context + example + conversation history
         available_len = self.generation_params["truncation_length"]
         prompt = ""
