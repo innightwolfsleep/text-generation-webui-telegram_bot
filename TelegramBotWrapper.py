@@ -290,8 +290,6 @@ class TelegramBotWrapper:
         return char_list
 
     def parse_presets_dir(self) -> list:
-        print(self.presets_dir_path)
-        print(listdir(self.presets_dir_path))
         preset_list = []
         for f in listdir(self.presets_dir_path):
             if f.endswith('.txt') or f.endswith('.yaml'):
@@ -676,7 +674,6 @@ class TelegramBotWrapper:
         char_list = self.parse_characters_dir()
         if shift == -9999 and self.users[chat_id].char_file in char_list:
             shift = char_list.index(self.users[chat_id].char_file)
-        print(shift, self.users[chat_id].char_file)
         #  create chars list
         characters_buttons = self.get_switch_keyboard(
             opt_list=char_list, shift=shift,
