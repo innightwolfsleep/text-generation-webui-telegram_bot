@@ -6,19 +6,22 @@ import json
 import time
 from re import split
 from os import listdir
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaAudio
 from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandler, CallbackQueryHandler
 from telegram.ext import Updater
 from telegram.error import BadRequest
+from telegram.constants import CHATACTION_TYPING
 from typing import Dict
 from deep_translator import GoogleTranslator as Translator
 
 try:
     from extensions.telegram_bot.TelegramBotUser import TelegramBotUser as User
     import extensions.telegram_bot.TelegramBotGenerator as Generator
+    from extensions.telegram_bot.TelegramBotSilero import Silero as Silero
 except ImportError:
     from TelegramBotUser import TelegramBotUser as User
     import TelegramBotGenerator as Generator
+    from TelegramBotSilero import Silero as Silero
 
 
 class TelegramBotWrapper:
@@ -46,6 +49,8 @@ class TelegramBotWrapper:
     BTN_CHAR_LOAD = 'Chars_load:'
     BTN_MODEL_LIST = 'Model_list:'
     BTN_MODEL_LOAD = 'Model_load:'
+    BTN_VOICE_LIST = 'Voice_list:'
+    BTN_VOICE_LOAD = 'Voice_load:'
     BTN_PRESET_LIST = 'Presets_list:'
     BTN_PRESET_LOAD = 'Preset_load:'
     BTN_LANG_LIST = 'Language_list:'
@@ -148,6 +153,7 @@ class TelegramBotWrapper:
         # Read config_file if existed, overwrite bot config
         self.load_config_file(config_file_path)
         self.load_preset(self.default_preset)
+        self.silero = Silero()
 
     def load_config_file(self, config_file_path: str):
         if os.path.exists(config_file_path):
@@ -225,21 +231,21 @@ class TelegramBotWrapper:
     # =============================================================================
     # Handlers
     def cb_start_command(self, upd, context):
-        Thread(target=self.send_welcome_message,
+        Thread(target=self.thread_welcome_message,
                args=(upd, context)).start()
 
     def cb_get_message(self, upd, context):
-        Thread(target=self.tr_get_message, args=(upd, context)).start()
+        Thread(target=self.thread_get_message, args=(upd, context)).start()
 
     def cb_opt_button(self, upd, context):
-        Thread(target=self.tr_opt_button, args=(upd, context)).start()
+        Thread(target=self.thread_push_button, args=(upd, context)).start()
 
     def cb_get_json_document(self, upd, context):
-        Thread(target=self.load_json_document, args=(upd, context)).start()
+        Thread(target=self.thread_get_json_document, args=(upd, context)).start()
 
     # =============================================================================
     # Additional telegram actions
-    def send_welcome_message(self, upd: Update, context: CallbackContext):
+    def thread_welcome_message(self, upd: Update, context: CallbackContext):
         chat_id = upd.effective_chat.id
         self.init_check_user(chat_id)
         send_text = self.make_template_message("char_loaded", chat_id)
@@ -305,7 +311,7 @@ class TelegramBotWrapper:
             self.users[chat_id].load_user_history(f'{self.history_dir_path}/{str(chat_id)}.json')
             self.users[chat_id].find_and_load_user_char_history(chat_id, self.history_dir_path)
 
-    def load_json_document(self, upd: Update, context: CallbackContext):
+    def thread_get_json_document(self, upd: Update, context: CallbackContext):
         chat_id = upd.message.chat.id
         self.init_check_user(chat_id)
         default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
@@ -322,35 +328,78 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id),
             parse_mode="HTML")
 
+    def send(self, context: CallbackContext, chat_id: int, text: str):
+        user = self.users[chat_id]
+        text = self.prepare_text(text, self.users[chat_id].language, "to_user")
+        if user.silero_speaker == "None" or user.silero_model_id == "None":
+            message = context.bot.send_message(text=text, chat_id=chat_id, parse_mode="HTML",
+                                               reply_markup=self.get_keyboard())
+            return message
+        else:
+            if ":" in text:
+                audio_text = ":".join(text.split(":")[1:])
+            else:
+                audio_text = text
+            audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
+            if audio_path is not None:
+                with open(audio_path, "rb") as audio:
+                    message = context.bot.send_audio(chat_id=chat_id, audio=audio, caption=text,
+                                                     filename=f"{user.name2}_to_{user.name1}.wav",
+                                                     parse_mode="HTML", reply_markup=self.get_keyboard())
+            else:
+                message = context.bot.send_message(text=text, chat_id=chat_id, parse_mode="HTML",
+                                                   reply_markup=self.get_keyboard())
+                return message
+            return message
+
+    def edit(self, context: CallbackContext, upd: Update, chat_id: int, text: str, message_id: int):
+        user = self.users[chat_id]
+        text = self.prepare_text(text, user.language, "to_user")
+        if upd.callback_query.message.text is not None:
+            context.bot.editMessageText(text=text, chat_id=chat_id, parse_mode="HTML", message_id=message_id,
+                                        reply_markup=self.get_keyboard())
+        if upd.callback_query.message.audio is not None \
+                and user.silero_speaker != "None" \
+                and user.silero_model_id != "None":
+            if ":" in text:
+                audio_text = ":".join(text.split(":")[1:])
+            else:
+                audio_text = text
+            audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
+            if audio_path is not None:
+                with open(audio_path, "rb") as audio:
+                    media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
+                    context.bot.edit_message_media(chat_id=chat_id, media=media, message_id=message_id,
+                                                   reply_markup=self.get_keyboard())
+        if upd.callback_query.message.caption is not None:
+            context.bot.editMessageCaption(chat_id=chat_id, caption=text, parse_mode="HTML", message_id=message_id,
+                                           reply_markup=self.get_keyboard())
+
     # =============================================================================
     # Message handler
-    def tr_get_message(self, upd: Update, context: CallbackContext):
+    def thread_get_message(self, upd: Update, context: CallbackContext):
         # Extract user input and chat ID
         user_text = upd.message.text
         chat_id = upd.message.chat.id
         self.init_check_user(chat_id)
+        user = self.users[chat_id]
         # Send "typing" message
-        send_text = self.make_template_message("typing", chat_id)
-        message = context.bot.send_message(
-            text=send_text, chat_id=chat_id, parse_mode="HTML")
+        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
         # Generate answer and replace "typing" message with it
         user_text = self.prepare_text(user_text, self.users[chat_id].language, "to_model")
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
-        answer = self.prepare_text(answer, self.users[chat_id].language, "to_user")
-        context.bot.editMessageText(
-            text=answer, chat_id=chat_id, message_id=message.message_id,
-            parse_mode="HTML", reply_markup=self.get_keyboard())
+        message = self.send(text=answer, chat_id=chat_id, context=context)
         # Clear buttons on last message (if they exist in current thread)
         self.clean_last_message_markup(context, chat_id)
         # Add message ID to message history
-        self.users[chat_id].msg_id.append(message.message_id)
+        user.msg_id.append(message.message_id)
         # Save user history
-        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
+        user.save_user_history(chat_id, self.history_dir_path)
         return True
 
     # =============================================================================
     # button
-    def tr_opt_button(self, upd: Update, context: CallbackContext):
+    def thread_push_button(self, upd: Update, context: CallbackContext):
         query = upd.callback_query
         query.answer()
         chat_id = query.message.chat.id
@@ -361,8 +410,7 @@ class TelegramBotWrapper:
             self.init_check_user(chat_id)
         if msg_id not in self.users[chat_id].msg_id \
                 and option in [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
-            send_text = self.prepare_text(msg_text, self.users[chat_id].language, "to_user") \
-                        + self.make_template_message("mem_lost", chat_id)
+            send_text = self.make_template_message("mem_lost", chat_id)
             context.bot.editMessageText(
                 text=send_text, chat_id=chat_id, message_id=msg_id,
                 reply_markup=None, parse_mode="HTML")
@@ -405,11 +453,18 @@ class TelegramBotWrapper:
             self.keyboard_language_button(upd=upd, context=context, option=option)
         elif option.startswith(self.BTN_LANG_LOAD):
             self.load_language_button(upd=upd, context=context, option=option)
+        elif option.startswith(self.BTN_VOICE_LIST):
+            self.keyboard_voice_button(upd=upd, context=context, option=option)
+        elif option.startswith(self.BTN_VOICE_LOAD):
+            self.load_voice_button(upd=upd, context=context, option=option)
 
     def options_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
-        send_text = "Conversation with: " + user.name2 + ", " + str(len(user.history)) + " messages."
+        send_text = f"""{user.name2}, 
+        Conversation length{str(len(user.history))} messages.
+        Voice: {user.silero_speaker}
+        Language: {user.language}"""
         context.bot.send_message(
             text=send_text, chat_id=chat_id,
             reply_markup=self.get_options_keyboard(chat_id),
@@ -423,80 +478,58 @@ class TelegramBotWrapper:
 
     def next_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
-
+        user = self.users[chat_id]
         # send "typing"
         self.clean_last_message_markup(context, chat_id)
-        send_text = self.make_template_message("typing", chat_id)
-        message = context.bot.send_message(
-            text=send_text, chat_id=chat_id,
-            parse_mode="HTML")
+        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
 
-        # get answer and replace message text!
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_NEXT, chat_id=chat_id)
-        answer = self.prepare_text(answer, self.users[chat_id].language, "to_user")
-        context.bot.editMessageText(
-            text=answer, chat_id=chat_id, message_id=message.message_id,
-            reply_markup=self.get_keyboard(), parse_mode="HTML")
+        message = self.send(text=answer, chat_id=chat_id, context=context)
         self.users[chat_id].msg_id.append(message.message_id)
+        user.save_user_history(chat_id, self.history_dir_path)
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         message = upd.callback_query.message
-
-        # add pretty "typing" to message text
-        send_text = self.prepare_text(message.text, self.users[chat_id].language, "to_user")
-        send_text += self.make_template_message('typing', chat_id)
-        context.bot.editMessageText(
-            text=send_text, chat_id=chat_id, message_id=message.message_id,
-            parse_mode="HTML")
+        user = self.users[chat_id]
+        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_CONTINUE, chat_id=chat_id)
-        answer = self.prepare_text(answer, self.users[chat_id].language, "to_user")
-        context.bot.editMessageText(
-            text=answer, chat_id=chat_id, message_id=message.message_id,
-            reply_markup=self.get_keyboard(), parse_mode="HTML")
+        self.edit(text=answer, chat_id=chat_id, message_id=message.message_id, context=context, upd=upd)
         self.users[chat_id].msg_id.append(message.message_id)
+        user.save_user_history(chat_id, self.history_dir_path)
 
     def delete_word_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
+
         # get and change last message
         last_message = user.history[-1]
         last_word = split(r"\n+| +", last_message)[-1]
         new_last_message = last_message[:-(len(last_word))]
         new_last_message = new_last_message.strip()
         user.history[-1] = new_last_message
-        send_text = self.prepare_text(new_last_message, self.users[chat_id].language, "to_user")
+
         # If there is previous message - add buttons to previous message
         if user.msg_id:
-            message_id = user.msg_id[-1]
-            context.bot.editMessageText(
-                text=send_text, chat_id=chat_id, message_id=message_id,
-                reply_markup=self.get_keyboard(), parse_mode="HTML")
-        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
+            self.edit(text=user.history[-1], chat_id=chat_id, message_id=user.msg_id[-1], context=context, upd=upd)
+        user.save_user_history(chat_id, self.history_dir_path)
 
     def regenerate_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         user = self.users[chat_id]
         # add pretty "retyping" to message text
-        send_text = self.prepare_text(msg.text, self.users[chat_id].language, "to_user")
-        send_text += self.make_template_message('retyping', chat_id)
-        context.bot.editMessageText(
-            text=send_text, chat_id=chat_id, message_id=msg.message_id,
-            parse_mode="HTML")
+        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
 
         # remove last bot answer, read and remove last user reply
-        user_in, _ = user.pop()
+        user_in = user.truncate_history()
 
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
-        answer = self.prepare_text(answer, self.users[chat_id].language, "to_user")
-        context.bot.editMessageText(
-            text=answer, chat_id=chat_id, message_id=msg.message_id,
-            reply_markup=self.get_keyboard(), parse_mode="HTML")
-        user.msg_id.append(msg.message_id)
+        self.edit(text=answer, chat_id=chat_id, message_id=msg.message_id, context=context, upd=upd)
+        user.save_user_history(chat_id, self.history_dir_path)
 
     def cutoff_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -505,14 +538,14 @@ class TelegramBotWrapper:
         last_msg_id = user.msg_id[-1]
         context.bot.deleteMessage(chat_id=chat_id, message_id=last_msg_id)
         # Remove last message and bot answer from history
-        user.pop()
+        user.truncate()
         # If there is previous message - add buttons to previous message
         if user.msg_id:
             message_id = user.msg_id[-1]
             context.bot.editMessageReplyMarkup(
                 chat_id=chat_id, message_id=message_id,
                 reply_markup=self.get_keyboard())
-        self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
+        user.save_user_history(chat_id, self.history_dir_path)
 
     def download_json_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -594,7 +627,12 @@ class TelegramBotWrapper:
         preset_char_num = int(option.replace(self.BTN_PRESET_LOAD, ""))
         self.default_preset = self.parse_presets_dir()[preset_char_num]
         self.load_preset(preset=self.default_preset)
-        send_text = self.make_template_message("preset_loaded", chat_id, self.default_preset)
+        user = self.users[chat_id]
+        send_text = f"""{user.name2}, 
+        Conversation length{str(len(user.history))} messages.
+        Voice: {user.silero_speaker}
+        Language: {user.language}
+        New preset: {self.default_preset}"""
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text, message_id=message_id, chat_id=chat_id,
@@ -650,14 +688,12 @@ class TelegramBotWrapper:
         #  If there was conversation with this char - load history
         self.users[chat_id].find_and_load_user_char_history(chat_id, self.history_dir_path)
         if len(self.users[chat_id].history) > 0:
-            send_text = self.make_template_message(
-                "hist_loaded", chat_id, self.users[chat_id].history[-1])
+            send_text = self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1])
         else:
-            send_text = self.make_template_message(
-                "char_loaded", chat_id)
+            send_text = self.make_template_message("char_loaded", chat_id)
         message_id = upd.callback_query.message.message_id
-        context.bot.editMessageText(
-            text=send_text, message_id=message_id, chat_id=chat_id,
+        context.bot.send_message(
+            text=send_text, chat_id=chat_id,
             parse_mode="HTML", reply_markup=self.get_options_keyboard(chat_id))
 
     def keyboard_characters_button(self, upd: Update, context: CallbackContext, option: str):
@@ -685,10 +721,14 @@ class TelegramBotWrapper:
 
     def load_language_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
+        user = self.users[chat_id]
         lang_num = int(option.replace(self.BTN_LANG_LOAD, ""))
         language = list(self.language_dict.keys())[lang_num]
         self.users[chat_id].language = language
-        send_text = "New language: " + self.html_tag[0] + language + self.html_tag[-1]
+        send_text = f"""{user.name2}, 
+        Conversation length{str(len(user.history))} messages.
+        Voice: {user.silero_speaker}
+        Language: {user.language} (NEW)"""
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text, message_id=message_id, chat_id=chat_id,
@@ -714,6 +754,49 @@ class TelegramBotWrapper:
         context.bot.editMessageReplyMarkup(
             chat_id=chat_id, message_id=msg.message_id,
             reply_markup=lang_buttons)
+
+    def load_voice_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        user = self.users[chat_id]
+        male = Silero.voices[user.language]["male"]
+        female = Silero.voices[user.language]["female"]
+        voice_dict = ["None"] + male + female
+        voice_num = int(option.replace(self.BTN_VOICE_LOAD, ""))
+        user.silero_speaker = voice_dict[voice_num]
+        user.silero_model_id = Silero.voices[user.language]["model"]
+        send_text = f"""{user.name2}, 
+        Conversation length{str(len(user.history))} messages.
+        Voice: {user.silero_speaker} (NEW)
+        Language: {user.language}"""
+        message_id = upd.callback_query.message.message_id
+        context.bot.editMessageText(
+            text=send_text, message_id=message_id, chat_id=chat_id,
+            parse_mode="HTML", reply_markup=self.get_options_keyboard(chat_id))
+
+    def keyboard_voice_button(self, upd: Update, context: CallbackContext, option: str):
+        chat_id = upd.callback_query.message.chat.id
+        msg = upd.callback_query.message
+        #  if "return char markup" button - clear markup
+        if option == self.BTN_VOICE_LIST + self.BTN_OPTION:
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=msg.message_id,
+                reply_markup=self.get_options_keyboard(chat_id))
+            return
+        #  get keyboard list shift
+        shift = int(option.replace(self.BTN_VOICE_LIST, ""))
+        #  create list
+        user = self.users[chat_id]
+        male = list(map(lambda x: x + "🚹", Silero.voices[user.language]["male"]))
+        female = list(map(lambda x: x + "🚺", Silero.voices[user.language]["female"]))
+        voice_dict = ["🔇None"] + male + female
+        voice_buttons = self.get_switch_keyboard(
+            opt_list=list(voice_dict), shift=shift,
+            data_list=self.BTN_VOICE_LIST,
+            data_load=self.BTN_VOICE_LOAD,
+            keyboard_colum=4)
+        context.bot.editMessageReplyMarkup(
+            chat_id=chat_id, message_id=msg.message_id,
+            reply_markup=voice_buttons)
 
     # =============================================================================
     # answer generator
@@ -857,6 +940,8 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"),
                         InlineKeyboardButton(
+                            text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"),
+                        InlineKeyboardButton(
                             text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"),
                         InlineKeyboardButton(
                             text="🔨Model", callback_data=self.BTN_MODEL_LIST + "0"),
@@ -877,6 +962,8 @@ class TelegramBotWrapper:
                             text="🗑Reset", callback_data=self.BTN_RESET),
                         InlineKeyboardButton(
                             text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"),
+                        InlineKeyboardButton(
+                            text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"),
                         InlineKeyboardButton(
                             text="❌Close", callback_data=self.BTN_DELETE)
                     ]
@@ -899,7 +986,7 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text="♻Regenerate", callback_data=self.BTN_REGEN),
                         InlineKeyboardButton(
-                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                            text="✖Cutoff", callback_data=self.BTN_CUTOFF),
                         InlineKeyboardButton(
                             text="⚙Options", callback_data=self.BTN_OPTION),
                     ]
@@ -918,7 +1005,7 @@ class TelegramBotWrapper:
                         InlineKeyboardButton(
                             text="🔄Regenerate", callback_data=self.BTN_REGEN),
                         InlineKeyboardButton(
-                            text="✂Cutoff", callback_data=self.BTN_CUTOFF),
+                            text="✖Cutoff", callback_data=self.BTN_CUTOFF),
                         InlineKeyboardButton(
                             text="⚙Options", callback_data=self.BTN_OPTION),
                     ]

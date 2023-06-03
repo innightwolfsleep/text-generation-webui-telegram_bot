@@ -30,6 +30,8 @@ class TelegramBotUser:
                  context="",
                  example="",
                  language="en",
+                 silero_speaker="None",
+                 silero_model_id="None",
                  turn_template="",
                  greeting="Hi!"):
         """
@@ -46,18 +48,26 @@ class TelegramBotUser:
         self.context: str = context
         self.example: str = example
         self.language: str = language
+        self.silero_speaker: str = silero_speaker
+        self.silero_model_id: str = silero_model_id
         self.turn_template: str = turn_template
         self.user_in: list = []  # "user input history": [["Hi!","Who are you?"]], need for regenerate option
         self.history: list = []  # "history": [["Hi!", "Hi there!","Who are you?", "I am you assistant."]],
         self.msg_id: list = []  # "msg_id": [143, 144, 145, 146],
         self.greeting: str = greeting
 
-    def pop(self):
+    def truncate(self):
         #  Converts all data to json string
-        user_in = self.user_in.pop()
         msg_id = self.msg_id.pop()
+        user_in = self.user_in.pop()
         self.history = self.history[:-2]
         return user_in, msg_id
+
+    def truncate_history(self):
+        #  Converts all data to json string
+        user_in = self.user_in.pop()
+        self.history = self.history[:-2]
+        return user_in
 
     def reset_history(self):
         #  clear all user history
@@ -74,6 +84,8 @@ class TelegramBotUser:
             "context": self.context,
             "example": self.example,
             "language": self.language,
+            "silero_speaker": self.silero_speaker,
+            "silero_model_id": self.silero_model_id,
             "turn_template": self.turn_template,
             "user_in": self.user_in,
             "history": self.history,
@@ -91,6 +103,8 @@ class TelegramBotUser:
             self.context = data["context"] if "context" in data else ""
             self.example = data["example"] if "example" in data else ""
             self.language = data["language"] if "language" in data else "en"
+            self.silero_speaker = data["silero_speaker"] if "silero_speaker" in data else "None"
+            self.silero_model_id = data["silero_model_id"] if "silero_model_id" in data else "None"
             self.turn_template = data["turn_template"] if "turn_template" in data else ""
             self.user_in = data["user_in"]
             self.history = data["history"]
