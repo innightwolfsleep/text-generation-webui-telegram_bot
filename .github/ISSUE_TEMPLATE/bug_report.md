@@ -1,26 +1,10 @@
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
-
----
-
 **Describe the bug**
 A clear and concise description of what the bug is.
 
-**Which model you use? **
+**Which model you use?**
 1. Check that model is apropriate and work with webui 
 2. Send a link to download model, and share history file (or share context an requests)
 (There is a lot of bugs with differes between request to model - telegram_bot and webui can proced user request with various ways)
-
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
