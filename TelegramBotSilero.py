@@ -29,7 +29,6 @@ class Silero:
             "male": ["aidar", "eugene", ],
             "female": ["baya", "kseniya", "xenia", ],
         }
-
     }
 
     def __init__(self, ):
