@@ -4,7 +4,7 @@ from threading import Thread, Lock
 from pathlib import Path
 import json
 import time
-from re import split
+from re import split, sub
 from os import listdir
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaAudio
 from telegram.ext import CallbackContext, Filters, CommandHandler, MessageHandler, CallbackQueryHandler
@@ -42,23 +42,50 @@ class TelegramBotWrapper:
     BTN_DEL_WORD = 'Delete_one_word'
     BTN_REGEN = 'Regen'
     BTN_CUTOFF = 'Cutoff'
-    BTN_RESET = 'Reset'
     BTN_DELETE = "Delete"
+    BTN_RESET = 'Reset'
     BTN_DOWNLOAD = 'Download'
     BTN_CHAR_LIST = 'Chars_list'
-    BTN_CHAR_LOAD = 'Chars_load:'
-    BTN_MODEL_LIST = 'Model_list:'
-    BTN_MODEL_LOAD = 'Model_load:'
-    BTN_VOICE_LIST = 'Voice_list:'
-    BTN_VOICE_LOAD = 'Voice_load:'
-    BTN_PRESET_LIST = 'Presets_list:'
-    BTN_PRESET_LOAD = 'Preset_load:'
-    BTN_LANG_LIST = 'Language_list:'
-    BTN_LANG_LOAD = 'Language_load:'
+    BTN_CHAR_LOAD = 'Chars_load'
+    BTN_MODEL_LIST = 'Model_list'
+    BTN_MODEL_LOAD = 'Model_load'
+    BTN_VOICE_LIST = 'Voice_list'
+    BTN_VOICE_LOAD = 'Voice_load'
+    BTN_PRESET_LIST = 'Presets_list'
+    BTN_PRESET_LOAD = 'Preset_load'
+    BTN_LANG_LIST = 'Language_list'
+    BTN_LANG_LOAD = 'Language_load'
     BTN_OPTION = "options"
+    GET_MESSAGE = "message"
     GENERATOR_MODE_NEXT = "/send_next_message"
     GENERATOR_MODE_CONTINUE = "/continue_last_message"
     # Supplementary structure
+    # Rules for various mode. 0=False=Restricted, 1=True=Allowed
+    user_rules = {
+        # messages buttons
+        BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0, },
+        BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+        BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        # option buttons
+        BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+        BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+        BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+        BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+        # allow to get messages
+        GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+    }
     # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
     impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
@@ -333,7 +360,7 @@ class TelegramBotWrapper:
         text = self.prepare_text(text, self.users[chat_id].language, "to_user")
         if user.silero_speaker == "None" or user.silero_model_id == "None":
             message = context.bot.send_message(text=text, chat_id=chat_id, parse_mode="HTML",
-                                               reply_markup=self.get_keyboard())
+                                               reply_markup=self.get_chat_keyboard())
             return message
         else:
             if ":" in text:
@@ -345,10 +372,10 @@ class TelegramBotWrapper:
                 with open(audio_path, "rb") as audio:
                     message = context.bot.send_audio(chat_id=chat_id, audio=audio, caption=text,
                                                      filename=f"{user.name2}_to_{user.name1}.wav",
-                                                     parse_mode="HTML", reply_markup=self.get_keyboard())
+                                                     parse_mode="HTML", reply_markup=self.get_chat_keyboard())
             else:
                 message = context.bot.send_message(text=text, chat_id=chat_id, parse_mode="HTML",
-                                                   reply_markup=self.get_keyboard())
+                                                   reply_markup=self.get_chat_keyboard())
                 return message
             return message
 
@@ -357,7 +384,7 @@ class TelegramBotWrapper:
         text = self.prepare_text(text, user.language, "to_user")
         if upd.callback_query.message.text is not None:
             context.bot.editMessageText(text=text, chat_id=chat_id, parse_mode="HTML", message_id=message_id,
-                                        reply_markup=self.get_keyboard())
+                                        reply_markup=self.get_chat_keyboard())
         if upd.callback_query.message.audio is not None \
                 and user.silero_speaker != "None" \
                 and user.silero_model_id != "None":
@@ -370,10 +397,10 @@ class TelegramBotWrapper:
                 with open(audio_path, "rb") as audio:
                     media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
                     context.bot.edit_message_media(chat_id=chat_id, media=media, message_id=message_id,
-                                                   reply_markup=self.get_keyboard())
+                                                   reply_markup=self.get_chat_keyboard())
         if upd.callback_query.message.caption is not None:
             context.bot.editMessageCaption(chat_id=chat_id, caption=text, parse_mode="HTML", message_id=message_id,
-                                           reply_markup=self.get_keyboard())
+                                           reply_markup=self.get_chat_keyboard())
 
     # =============================================================================
     # Message handler
@@ -381,6 +408,8 @@ class TelegramBotWrapper:
         # Extract user input and chat ID
         user_text = upd.message.text
         chat_id = upd.message.chat.id
+        if self.check_user_rule(chat_id=chat_id, option=self.GET_MESSAGE) is not True:
+            return False
         self.init_check_user(chat_id)
         user = self.users[chat_id]
         # Send "typing" message
@@ -415,47 +444,47 @@ class TelegramBotWrapper:
                 text=send_text, chat_id=chat_id, message_id=msg_id,
                 reply_markup=None, parse_mode="HTML")
         else:
-            self.handle_option(option, upd, context)
+            self.handle_option(option, chat_id, upd, context)
             self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
 
-    def handle_option(self, option, upd, context):
-        if option == self.BTN_RESET:
+    def handle_option(self, option, chat_id, upd, context):
+        if option == self.BTN_RESET and self.check_user_rule(chat_id, option):
             self.reset_history_button(upd=upd, context=context)
-        elif option == self.BTN_CONTINUE:
+        elif option == self.BTN_CONTINUE and self.check_user_rule(chat_id, option):
             self.continue_message_button(upd=upd, context=context)
-        elif option == self.BTN_NEXT:
+        elif option == self.BTN_NEXT and self.check_user_rule(chat_id, option):
             self.next_message_button(upd=upd, context=context)
-        elif option == self.BTN_DEL_WORD:
+        elif option == self.BTN_DEL_WORD and self.check_user_rule(chat_id, option):
             self.delete_word_button(upd=upd, context=context)
-        elif option == self.BTN_REGEN:
+        elif option == self.BTN_REGEN and self.check_user_rule(chat_id, option):
             self.regenerate_message_button(upd=upd, context=context)
-        elif option == self.BTN_CUTOFF:
+        elif option == self.BTN_CUTOFF and self.check_user_rule(chat_id, option):
             self.cutoff_message_button(upd=upd, context=context)
-        elif option == self.BTN_DOWNLOAD:
+        elif option == self.BTN_DOWNLOAD and self.check_user_rule(chat_id, option):
             self.download_json_button(upd=upd, context=context)
-        elif option == self.BTN_OPTION:
+        elif option == self.BTN_OPTION and self.check_user_rule(chat_id, option):
             self.options_button(upd=upd, context=context)
-        elif option == self.BTN_DELETE:
+        elif option == self.BTN_DELETE and self.check_user_rule(chat_id, option):
             self.delete_button(upd=upd, context=context)
-        elif option.startswith(self.BTN_CHAR_LIST):
+        elif option.startswith(self.BTN_CHAR_LIST) and self.check_user_rule(chat_id, option):
             self.keyboard_characters_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_CHAR_LOAD):
+        elif option.startswith(self.BTN_CHAR_LOAD) and self.check_user_rule(chat_id, option):
             self.load_character_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_PRESET_LIST):
+        elif option.startswith(self.BTN_PRESET_LIST) and self.check_user_rule(chat_id, option):
             self.keyboard_presets_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_PRESET_LOAD):
+        elif option.startswith(self.BTN_PRESET_LOAD) and self.check_user_rule(chat_id, option):
             self.load_presets_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_MODEL_LIST):
+        elif option.startswith(self.BTN_MODEL_LIST) and self.check_user_rule(chat_id, option):
             self.keyboard_models_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_MODEL_LOAD):
+        elif option.startswith(self.BTN_MODEL_LOAD) and self.check_user_rule(chat_id, option):
             self.load_model_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_LANG_LIST):
+        elif option.startswith(self.BTN_LANG_LIST) and self.check_user_rule(chat_id, option):
             self.keyboard_language_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_LANG_LOAD):
+        elif option.startswith(self.BTN_LANG_LOAD) and self.check_user_rule(chat_id, option):
             self.load_language_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_VOICE_LIST):
+        elif option.startswith(self.BTN_VOICE_LIST) and self.check_user_rule(chat_id, option):
             self.keyboard_voice_button(upd=upd, context=context, option=option)
-        elif option.startswith(self.BTN_VOICE_LOAD):
+        elif option.startswith(self.BTN_VOICE_LOAD) and self.check_user_rule(chat_id, option):
             self.load_voice_button(upd=upd, context=context, option=option)
 
     def options_button(self, upd: Update, context: CallbackContext):
@@ -544,7 +573,7 @@ class TelegramBotWrapper:
             message_id = user.msg_id[-1]
             context.bot.editMessageReplyMarkup(
                 chat_id=chat_id, message_id=message_id,
-                reply_markup=self.get_keyboard())
+                reply_markup=self.get_chat_keyboard())
         user.save_user_history(chat_id, self.history_dir_path)
 
     def download_json_button(self, upd: Update, context: CallbackContext):
@@ -921,109 +950,71 @@ class TelegramBotWrapper:
     # =============================================================================
     # load characters char_file from ./characters
 
+    def check_user_rule(self, chat_id, option):
+        print(option)
+        option = sub(r"[0123456789-]", "", option)
+        if option.endswith(self.BTN_OPTION):
+            option = self.BTN_OPTION
+        print(option)
+        if chat_id in self.admins_list or self.bot_mode == self.MODE_ADMIN:
+            return bool(self.user_rules[option][self.MODE_ADMIN])
+        else:
+            return bool(self.user_rules[option][self.bot_mode])
+
     def get_options_keyboard(self, chat_id=0):
+        keyboard_raw = []
         if chat_id in self.users:
             language = self.users[chat_id].language
         else:
             language = "en"
         language_flag = self.language_dict[language]
-        if self.bot_mode == self.MODE_ADMIN or str(chat_id) in self.admins_list:
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
-                        InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"),
-                        InlineKeyboardButton(
-                            text="🗑Reset", callback_data=self.BTN_RESET),
-                        InlineKeyboardButton(
-                            text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="🔨Model", callback_data=self.BTN_MODEL_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="❌Close", callback_data=self.BTN_DELETE)
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_CHAT:
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="💾Save", callback_data=self.BTN_DOWNLOAD),
-                        InlineKeyboardButton(
-                            text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"),
-                        InlineKeyboardButton(
-                            text="🗑Reset", callback_data=self.BTN_RESET),
-                        InlineKeyboardButton(
-                            text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"),
-                        InlineKeyboardButton(
-                            text="❌Close", callback_data=self.BTN_DELETE)
-                    ]
-                ]
-            )
-        else:
-            return None
+        if self.check_user_rule(chat_id, self.BTN_DOWNLOAD):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="💾Save", callback_data=self.BTN_DOWNLOAD))
+        if self.check_user_rule(chat_id, self.BTN_CHAR_LIST):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"))
+        if self.check_user_rule(chat_id, self.BTN_RESET):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="⚠Reset", callback_data=self.BTN_RESET))
+        if self.check_user_rule(chat_id, self.BTN_LANG_LIST):
+            keyboard_raw.append(InlineKeyboardButton(
+                text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"))
+        if self.check_user_rule(chat_id, self.BTN_VOICE_LIST):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"))
+        if self.check_user_rule(chat_id, self.BTN_PRESET_LIST):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"))
+        if self.check_user_rule(chat_id, self.BTN_MODEL_LIST):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="🔨Model", callback_data=self.BTN_MODEL_LIST + "0"))
+        if self.check_user_rule(chat_id, self.BTN_DELETE):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="❌Close", callback_data=self.BTN_DELETE))
+        return InlineKeyboardMarkup([keyboard_raw])
 
-    def get_keyboard(self, chat_id=0):
-        if self.bot_mode in [self.MODE_ADMIN, self.MODE_CHAT] or str(chat_id) in self.admins_list:
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="▶Next", callback_data=self.BTN_NEXT),
-                        InlineKeyboardButton(
-                            text="➡Continue", callback_data=self.BTN_CONTINUE),
-                        InlineKeyboardButton(
-                            text="⬅Del word", callback_data=self.BTN_DEL_WORD),
-                        InlineKeyboardButton(
-                            text="♻Regenerate", callback_data=self.BTN_REGEN),
-                        InlineKeyboardButton(
-                            text="✖Cutoff", callback_data=self.BTN_CUTOFF),
-                        InlineKeyboardButton(
-                            text="⚙Options", callback_data=self.BTN_OPTION),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_CHAT_R:
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="▶Next", callback_data=self.BTN_NEXT),
-                        InlineKeyboardButton(
-                            text="➡Continue", callback_data=self.BTN_CONTINUE),
-                        InlineKeyboardButton(
-                            text="⬅Del word", callback_data=self.BTN_DEL_WORD),
-                        InlineKeyboardButton(
-                            text="🔄Regenerate", callback_data=self.BTN_REGEN),
-                        InlineKeyboardButton(
-                            text="✖Cutoff", callback_data=self.BTN_CUTOFF),
-                        InlineKeyboardButton(
-                            text="⚙Options", callback_data=self.BTN_OPTION),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_NOTEBOOK:
-            return InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="▶Next", callback_data=self.BTN_NEXT),
-                        InlineKeyboardButton(
-                            text="🚫Reset memory", callback_data=self.BTN_RESET),
-                    ]
-                ]
-            )
-        elif self.bot_mode == self.MODE_PERSONA:
-            return None
+    def get_chat_keyboard(self, chat_id=0):
+        keyboard_raw = []
+        if self.check_user_rule(chat_id, self.BTN_NEXT):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="▶Next", callback_data=self.BTN_NEXT))
+        if self.check_user_rule(chat_id, self.BTN_CONTINUE):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="➡Continue", callback_data=self.BTN_CONTINUE))
+        if self.check_user_rule(chat_id, self.BTN_DEL_WORD):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="⬅Del word", callback_data=self.BTN_DEL_WORD))
+        if self.check_user_rule(chat_id, self.BTN_REGEN):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="♻Regenerate", callback_data=self.BTN_REGEN))
+        if self.check_user_rule(chat_id, self.BTN_CUTOFF):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="✖Cutoff", callback_data=self.BTN_CUTOFF))
+        if self.check_user_rule(chat_id, self.BTN_OPTION):
+            keyboard_raw.append(InlineKeyboardButton(
+                text="⚙Options", callback_data=self.BTN_OPTION))
+        return InlineKeyboardMarkup([keyboard_raw])
 
     def get_switch_keyboard(self,
                             opt_list: list,
