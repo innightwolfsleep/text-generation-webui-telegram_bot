@@ -951,11 +951,9 @@ class TelegramBotWrapper:
     # load characters char_file from ./characters
 
     def check_user_rule(self, chat_id, option):
-        print(option)
         option = sub(r"[0123456789-]", "", option)
         if option.endswith(self.BTN_OPTION):
             option = self.BTN_OPTION
-        print(option)
         if chat_id in self.admins_list or self.bot_mode == self.MODE_ADMIN:
             return bool(self.user_rules[option][self.MODE_ADMIN])
         else:
