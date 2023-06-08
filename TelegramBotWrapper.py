@@ -1,6 +1,6 @@
 import io
 import os.path
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 from pathlib import Path
 import json
 import time
@@ -62,29 +62,29 @@ class TelegramBotWrapper:
     # Supplementary structure
     # Rules for various mode. 0=False=Restricted, 1=True=Allowed
     user_rules = {
-        # messages buttons
-        BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0, },
-        BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-        BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        # option buttons
-        BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-        BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-        BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-        BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-        # allow to get messages
-        GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     # messages buttons
+     BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0, },
+     BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+     BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     # option buttons
+     BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+     BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
+     BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
+     BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     # allow to get messages
+     GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
     }
     # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
@@ -97,6 +97,7 @@ class TelegramBotWrapper:
     updater = None
     # Define generator lock to prevent GPU overloading
     generator_lock = Lock()
+    generation_timeout = 600
     # Bot message open/close html tags. Set ["", ""] to disable.
     html_tag = ["<pre>", "</pre>"]
     generation_params = {
@@ -355,6 +356,19 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id),
             parse_mode="HTML")
 
+    def typing_start(self, context: CallbackContext, chat_id: int) -> Event:
+        typing_active = Event()
+        typing_active.set()
+        Thread(target=self.typing_thread, args=(context, chat_id, typing_active)).start()
+        return typing_active
+
+    def typing_thread(self, context: CallbackContext, chat_id: int, typing_active: Event):
+        limit_counter = int(self.generation_timeout / 6)
+        while typing_active.is_set() and limit_counter > 0:
+            context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
+            time.sleep(6)
+            limit_counter -= 1
+
     def send(self, context: CallbackContext, chat_id: int, text: str):
         user = self.users[chat_id]
         text = self.prepare_text(text, self.users[chat_id].language, "to_user")
@@ -413,7 +427,7 @@ class TelegramBotWrapper:
         self.init_check_user(chat_id)
         user = self.users[chat_id]
         # Send "typing" message
-        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
+        typing = self.typing_start(context, chat_id)
         # Generate answer and replace "typing" message with it
         user_text = self.prepare_text(user_text, self.users[chat_id].language, "to_model")
         answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
@@ -424,6 +438,7 @@ class TelegramBotWrapper:
         user.msg_id.append(message.message_id)
         # Save user history
         user.save_user_history(chat_id, self.history_dir_path)
+        typing.clear()
         return True
 
     # =============================================================================
@@ -433,7 +448,6 @@ class TelegramBotWrapper:
         query.answer()
         chat_id = query.message.chat.id
         msg_id = query.message.message_id
-        msg_text = query.message.text
         option = query.data
         if chat_id not in self.users:
             self.init_check_user(chat_id)
@@ -510,24 +524,24 @@ class TelegramBotWrapper:
         user = self.users[chat_id]
         # send "typing"
         self.clean_last_message_markup(context, chat_id)
-        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
-
+        typing = self.typing_start(context, chat_id)
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_NEXT, chat_id=chat_id)
         message = self.send(text=answer, chat_id=chat_id, context=context)
         self.users[chat_id].msg_id.append(message.message_id)
         user.save_user_history(chat_id, self.history_dir_path)
+        typing.clear()
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         message = upd.callback_query.message
         user = self.users[chat_id]
-        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
-
+        typing = self.typing_start(context, chat_id)
         # get answer and replace message text!
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_CONTINUE, chat_id=chat_id)
         self.edit(text=answer, chat_id=chat_id, message_id=message.message_id, context=context, upd=upd)
         self.users[chat_id].msg_id.append(message.message_id)
         user.save_user_history(chat_id, self.history_dir_path)
+        typing.clear()
 
     def delete_word_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -550,15 +564,14 @@ class TelegramBotWrapper:
         msg = upd.callback_query.message
         user = self.users[chat_id]
         # add pretty "retyping" to message text
-        context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
-
+        typing = self.typing_start(context, chat_id)
         # remove last bot answer, read and remove last user reply
         user_in = user.truncate_history()
-
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
         self.edit(text=answer, chat_id=chat_id, message_id=msg.message_id, context=context, upd=upd)
         user.save_user_history(chat_id, self.history_dir_path)
+        typing.clear()
 
     def cutoff_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -720,7 +733,6 @@ class TelegramBotWrapper:
             send_text = self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1])
         else:
             send_text = self.make_template_message("char_loaded", chat_id)
-        message_id = upd.callback_query.message.message_id
         context.bot.send_message(
             text=send_text, chat_id=chat_id,
             parse_mode="HTML", reply_markup=self.get_options_keyboard(chat_id))
@@ -904,7 +916,7 @@ class TelegramBotWrapper:
 
         try:
             # acquire generator lock if we can
-            self.generator_lock.acquire(timeout=600)
+            self.generator_lock.acquire(timeout=self.generation_timeout)
             # Generate!
             answer = Generator.get_answer(prompt=prompt,
                                           generation_params=self.generation_params,
