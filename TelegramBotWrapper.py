@@ -422,24 +422,27 @@ class TelegramBotWrapper:
         # Extract user input and chat ID
         user_text = upd.message.text
         chat_id = upd.message.chat.id
-        if self.check_user_rule(chat_id=chat_id, option=self.GET_MESSAGE) is not True:
-            return False
-        self.init_check_user(chat_id)
-        user = self.users[chat_id]
         # Send "typing" message
         typing = self.typing_start(context, chat_id)
-        # Generate answer and replace "typing" message with it
-        user_text = self.prepare_text(user_text, self.users[chat_id].language, "to_model")
-        answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
-        message = self.send(text=answer, chat_id=chat_id, context=context)
-        # Clear buttons on last message (if they exist in current thread)
-        self.clean_last_message_markup(context, chat_id)
-        # Add message ID to message history
-        user.msg_id.append(message.message_id)
-        # Save user history
-        user.save_user_history(chat_id, self.history_dir_path)
-        typing.clear()
-        return True
+        try:
+            if self.check_user_rule(chat_id=chat_id, option=self.GET_MESSAGE) is not True:
+                return False
+            self.init_check_user(chat_id)
+            user = self.users[chat_id]
+            # Generate answer and replace "typing" message with it
+            user_text = self.prepare_text(user_text, self.users[chat_id].language, "to_model")
+            answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
+            message = self.send(text=answer, chat_id=chat_id, context=context)
+            # Clear buttons on last message (if they exist in current thread)
+            self.clean_last_message_markup(context, chat_id)
+            # Add message ID to message history
+            user.msg_id.append(message.message_id)
+            # Save user history
+            user.save_user_history(chat_id, self.history_dir_path)
+        except Exception as e:
+            print(e)
+        finally:
+            typing.clear()
 
     # =============================================================================
     # button
@@ -449,17 +452,24 @@ class TelegramBotWrapper:
         chat_id = query.message.chat.id
         msg_id = query.message.message_id
         option = query.data
-        if chat_id not in self.users:
-            self.init_check_user(chat_id)
-        if msg_id not in self.users[chat_id].msg_id \
-                and option in [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
-            send_text = self.make_template_message("mem_lost", chat_id)
-            context.bot.editMessageText(
-                text=send_text, chat_id=chat_id, message_id=msg_id,
-                reply_markup=None, parse_mode="HTML")
-        else:
-            self.handle_option(option, chat_id, upd, context)
-            self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
+        # Send "typing" message
+        typing = self.typing_start(context, chat_id)
+        try:
+            if chat_id not in self.users:
+                self.init_check_user(chat_id)
+            if msg_id not in self.users[chat_id].msg_id \
+                    and option in [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
+                send_text = self.make_template_message("mem_lost", chat_id)
+                context.bot.editMessageText(
+                    text=send_text, chat_id=chat_id, message_id=msg_id,
+                    reply_markup=None, parse_mode="HTML")
+            else:
+                self.handle_option(option, chat_id, upd, context)
+                self.users[chat_id].save_user_history(chat_id, self.history_dir_path)
+        except Exception as e:
+            print(e)
+        finally:
+            typing.clear()
 
     def handle_option(self, option, chat_id, upd, context):
         if option == self.BTN_RESET and self.check_user_rule(chat_id, option):
@@ -524,24 +534,20 @@ class TelegramBotWrapper:
         user = self.users[chat_id]
         # send "typing"
         self.clean_last_message_markup(context, chat_id)
-        typing = self.typing_start(context, chat_id)
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_NEXT, chat_id=chat_id)
         message = self.send(text=answer, chat_id=chat_id, context=context)
         self.users[chat_id].msg_id.append(message.message_id)
         user.save_user_history(chat_id, self.history_dir_path)
-        typing.clear()
 
     def continue_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         message = upd.callback_query.message
         user = self.users[chat_id]
-        typing = self.typing_start(context, chat_id)
         # get answer and replace message text!
         answer = self.generate_answer(user_in=self.GENERATOR_MODE_CONTINUE, chat_id=chat_id)
         self.edit(text=answer, chat_id=chat_id, message_id=message.message_id, context=context, upd=upd)
         self.users[chat_id].msg_id.append(message.message_id)
         user.save_user_history(chat_id, self.history_dir_path)
-        typing.clear()
 
     def delete_word_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -564,14 +570,12 @@ class TelegramBotWrapper:
         msg = upd.callback_query.message
         user = self.users[chat_id]
         # add pretty "retyping" to message text
-        typing = self.typing_start(context, chat_id)
         # remove last bot answer, read and remove last user reply
         user_in = user.truncate_history()
         # get answer and replace message text!
         answer = self.generate_answer(user_in=user_in, chat_id=chat_id)
         self.edit(text=answer, chat_id=chat_id, message_id=msg.message_id, context=context, upd=upd)
         user.save_user_history(chat_id, self.history_dir_path)
-        typing.clear()
 
     def cutoff_message_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
@@ -973,11 +977,22 @@ class TelegramBotWrapper:
 
     def get_options_keyboard(self, chat_id=0):
         keyboard_raw = []
+        # get language
         if chat_id in self.users:
             language = self.users[chat_id].language
         else:
             language = "en"
         language_flag = self.language_dict[language]
+        # get voice
+        if chat_id in self.users:
+            voice_str = self.users[chat_id].silero_speaker
+            if voice_str == "None":
+                voice = "🔇"
+            else:
+                voice = "🔈"
+        else:
+            voice = "🔇"
+
         if self.check_user_rule(chat_id, self.BTN_DOWNLOAD):
             keyboard_raw.append(InlineKeyboardButton(
                 text="💾Save", callback_data=self.BTN_DOWNLOAD))
@@ -992,7 +1007,7 @@ class TelegramBotWrapper:
                 text=language_flag + "Language", callback_data=self.BTN_LANG_LIST + "0"))
         if self.check_user_rule(chat_id, self.BTN_VOICE_LIST):
             keyboard_raw.append(InlineKeyboardButton(
-                text="🔈Voice", callback_data=self.BTN_VOICE_LIST + "0"))
+                text=voice + "Voice", callback_data=self.BTN_VOICE_LIST + "0"))
         if self.check_user_rule(chat_id, self.BTN_PRESET_LIST):
             keyboard_raw.append(InlineKeyboardButton(
                 text="🔧Presets", callback_data=self.BTN_PRESET_LIST + "0"))
