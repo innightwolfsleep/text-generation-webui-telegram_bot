@@ -14,13 +14,12 @@ class TelegramBotUser:
         "mem_lost": "<b>MEMORY LOST!</b>\nSend /start or any text for new session.",  # refers to non-existing
         "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
         "typing": "<i>_NAME2_ typing...</i>",  # added when generating working
-        "char_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_ ",  # When new char loaded
+        "char_loaded": "_NAME2_ LOADED!\n_GREETING_ ",  # When new char loaded
         "preset_loaded": "LOADED PRESET: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
         "model_loaded": "LOADED MODEL: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
-        "mem_reset": "MEMORY RESET!\n_OPEN_TAG__GREETING__CLOSE_TAG_",  # When history cleared
+        "mem_reset": "MEMORY RESET!\n_GREETING_",  # When history cleared
         "hist_to_chat": "To load history - forward message to this chat",  # download history
-        "hist_loaded": "_NAME2_ LOADED!\n_OPEN_TAG__GREETING__CLOSE_TAG_"
-                       "\n\nLAST MESSAGE:\n_OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # load history
+        "hist_loaded": "_NAME2_ LOADED!\n_GREETING_\n\nLAST MESSAGE:\n_CUSTOM_STRING_",  # load history
     }
 
     def __init__(self,
