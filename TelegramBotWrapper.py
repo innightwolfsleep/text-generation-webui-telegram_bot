@@ -100,6 +100,8 @@ class TelegramBotWrapper:
     generation_timeout = 600
     # Bot message open/close html tags. Set ["", ""] to disable.
     html_tag = ["<pre>", "</pre>"]
+    translate_html_tag = ['<span class="tg-spoiler">', '</span>']
+    translation_as_hidden_text = "off"
     generation_params = {
         'max_new_tokens': 256,
         'seed': -1.0,
@@ -209,6 +211,8 @@ class TelegramBotWrapper:
                         self.history_dir_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "token_file_path":
                         self.token_file_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "translation_as_hidden_text":
+                        self.translation_as_hidden_text = s.split("=")[-1].lower()
                     if "=" in s and s.split("=")[0] == "stopping_strings":
                         if s.split("=")[-1] == "None":
                             self.stopping_strings = []
@@ -457,8 +461,8 @@ class TelegramBotWrapper:
         try:
             if chat_id not in self.users:
                 self.init_check_user(chat_id)
-            if msg_id not in self.users[chat_id].msg_id \
-                    and option in [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
+            if msg_id not in self.users[chat_id].msg_id and option in \
+                    [self.BTN_NEXT, self.BTN_CONTINUE, self.BTN_DEL_WORD, self.BTN_REGEN, self.BTN_CUTOFF]:
                 send_text = self.make_template_message("mem_lost", chat_id)
                 context.bot.editMessageText(
                     text=send_text, chat_id=chat_id, message_id=msg_id,
@@ -945,22 +949,24 @@ class TelegramBotWrapper:
                 user.history[-1] = user.history[-1] + " " + answer
             return user.history[-1]
 
-    def prepare_text(self, text, user_language="en", direction="to_user"):
+    def prepare_text(self, original_text, user_language="en", direction="to_user"):
+        text = original_text
         # translate
         if self.model_lang != user_language:
             if direction == "to_model":
-                text = Translator(
-                    source=user_language,
-                    target=self.model_lang).translate(text)
+                text = Translator(source=user_language, target=self.model_lang).translate(text)
             elif direction == "to_user":
-                text = Translator(
-                    source=self.model_lang,
-                    target=user_language).translate(text)
-
+                text = Translator(source=self.model_lang, target=user_language).translate(text)
         # Add HTML tags and other...
         if direction not in ["to_model", "no_html"]:
             text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
-            text = self.html_tag[0] + text + self.html_tag[1]
+            original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
+            if self.model_lang != user_language and direction == "to_user" and self.translation_as_hidden_text == "on":
+                text = self.html_tag[0] + original_text + self.html_tag[1] + "\n" + \
+                       self.translate_html_tag[0] + text + self.translate_html_tag[1]
+            else:
+                text = self.html_tag[0] + text + self.html_tag[1]
+        print(text)
         return text
 
     # =============================================================================
