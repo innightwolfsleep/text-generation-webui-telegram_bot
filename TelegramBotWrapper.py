@@ -443,7 +443,8 @@ class TelegramBotWrapper:
             # Clear buttons on last message (if they exist in current thread)
             self.clean_last_message_markup(context, chat_id)
             # Add message ID to message history
-            user.msg_id.append(message.message_id)
+            if not answer.startswith(self.permanent_impersonate_prefixes):
+                user.msg_id.append(message.message_id)
             # Save user history
             user.save_user_history(chat_id, self.history_dir_path)
         except Exception as e:
