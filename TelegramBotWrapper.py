@@ -439,14 +439,16 @@ class TelegramBotWrapper:
             # Generate answer and replace "typing" message with it
             user_text = self.prepare_text(user_text, self.users[chat_id].language, "to_model")
             answer = self.generate_answer(user_in=user_text, chat_id=chat_id)
-            message = self.send(text=answer, chat_id=chat_id, context=context)
-            # Clear buttons on last message (if they exist in current thread)
-            self.clean_last_message_markup(context, chat_id)
-            # Add message ID to message history
-            if not user_text.startswith(self.permanent_impersonate_prefixes):
+            if user_text[:2] in self.permanent_impersonate_prefixes:
+                context.bot.send_message(text=answer, chat_id=chat_id)
+            else:
+                message = self.send(text=answer, chat_id=chat_id, context=context)
+                # Clear buttons on last message (if they exist in current thread)
+                self.clean_last_message_markup(context, chat_id)
+                # Add message ID to message history
                 user.msg_id.append(message.message_id)
-            # Save user history
-            user.save_user_history(chat_id, self.history_dir_path)
+                # Save user history
+                user.save_user_history(chat_id, self.history_dir_path)
         except Exception as e:
             print(e)
             raise e
