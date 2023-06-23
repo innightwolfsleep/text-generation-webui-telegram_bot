@@ -90,6 +90,9 @@ class TelegramBotWrapper:
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
     impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
     permanent_impersonate_prefixes = ["++"]  # Prefix for "impersonate" message
+    sd_api_prefixes = ["@", "📷", "📸", "📹", "🎥", "📽", ]  # Prefix for sd api generation
+    sd_api_prompt_of = "Provide a detailed and vivid description of "
+    sd_api_prompt_self = "Provide a detailed description of appearance, surroundings and what doing right now"
     # Language list
     language_dict = {"en": "🇬🇧", "ru": "🇷🇺", "ja": "🇯🇵", "fr": "🇫🇷", "es": "🇪🇸", "de": "🇩🇪", "th": "🇹🇭",
                      "tr": "🇹🇷", "it": "🇮🇹", "hi": "🇮🇳", "zh-CN": "🇨🇳", "ar": "🇸🇾"}
@@ -360,13 +363,13 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id),
             parse_mode="HTML")
 
-    def typing_start(self, context: CallbackContext, chat_id: int) -> Event:
+    def typing_status_start(self, context: CallbackContext, chat_id: int) -> Event:
         typing_active = Event()
         typing_active.set()
-        Thread(target=self.typing_thread, args=(context, chat_id, typing_active)).start()
+        Thread(target=self.thread_typing_status, args=(context, chat_id, typing_active)).start()
         return typing_active
 
-    def typing_thread(self, context: CallbackContext, chat_id: int, typing_active: Event):
+    def thread_typing_status(self, context: CallbackContext, chat_id: int, typing_active: Event):
         limit_counter = int(self.generation_timeout / 6)
         while typing_active.is_set() and limit_counter > 0:
             context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
@@ -427,7 +430,7 @@ class TelegramBotWrapper:
         user_text = upd.message.text
         chat_id = upd.message.chat.id
         # Send "typing" message
-        typing = self.typing_start(context, chat_id)
+        typing = self.typing_status_start(context, chat_id)
         try:
             if self.check_user_rule(chat_id=chat_id, option=self.GET_MESSAGE) is not True:
                 return False
@@ -445,6 +448,7 @@ class TelegramBotWrapper:
             user.save_user_history(chat_id, self.history_dir_path)
         except Exception as e:
             print(e)
+            raise e
         finally:
             typing.clear()
 
@@ -457,7 +461,7 @@ class TelegramBotWrapper:
         msg_id = query.message.message_id
         option = query.data
         # Send "typing" message
-        typing = self.typing_start(context, chat_id)
+        typing = self.typing_status_start(context, chat_id)
         try:
             if chat_id not in self.users:
                 self.init_check_user(chat_id)
@@ -652,6 +656,7 @@ class TelegramBotWrapper:
                     chat_id=chat_id, message_id=message_id,
                     text="Error during " + model_file + " loading. ⛔",
                     parse_mode="HTML", reply_markup=self.get_options_keyboard(chat_id))
+                raise e
 
     def keyboard_models_button(self, upd: Update, context: CallbackContext, option: str):
         if Generator.get_model_list() is not None:
@@ -855,6 +860,10 @@ class TelegramBotWrapper:
         user = self.users[chat_id]
 
         # Preprocessing: add user_in to history in right order:
+        if user_in[:2] in self.permanent_impersonate_prefixes:
+            # If user_in starts with perm_prefix - just replace name2
+            user.name2 = user_in[2:]
+            return "New name: " + user.name2
         if self.bot_mode in [self.MODE_QUERY]:
             user.history = []
         if self.bot_mode == "notebook":
@@ -871,17 +880,19 @@ class TelegramBotWrapper:
             # if user_in is "" - no user text, it is like continue generation
             # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
             pass
-        elif user_in[:2] in self.permanent_impersonate_prefixes:
-            user.name2 = user_in[2:]
-            user.user_in.append(user_in)
-            user.history.append("")
-            user.history.append(user_in[2:] + ":")
         elif user_in[0] in self.impersonate_prefixes:
             # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
             # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
             user.user_in.append(user_in)
             user.history.append("")
             user.history.append(user_in[1:] + ":")
+        elif user_in[0] in self.sd_api_prefixes:
+            # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
+            # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
+            user.user_in.append(user_in)
+            user_in = self.sd_api_prompt_of + user_in[1:].strip()
+            user.history.append("")
+            user.history.append(user_in + ":")
         elif user_in[0] in self.replace_prefixes:
             # If user_in starts with replace_prefix - fully replace last message
             user.user_in.append(user_in)
@@ -966,7 +977,6 @@ class TelegramBotWrapper:
                        self.translate_html_tag[0] + text + self.translate_html_tag[1]
             else:
                 text = self.html_tag[0] + text + self.html_tag[1]
-        print(text)
         return text
 
     # =============================================================================
