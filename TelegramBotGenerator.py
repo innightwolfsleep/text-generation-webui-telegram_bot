@@ -31,7 +31,6 @@ def get_answer(
                              })
     generator = generate_reply(question=prompt,
                                state=generation_params,
-                               eos_token=eos_token,
                                stopping_strings=stopping_strings)
     # This is "bad" implementation of getting answer, should be reworked
     answer = default_answer
