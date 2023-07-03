@@ -45,6 +45,7 @@ class TelegramBotWrapper:
     BTN_DELETE = "Delete"
     BTN_RESET = 'Reset'
     BTN_DOWNLOAD = 'Download'
+    BTN_LORE = 'Context'
     BTN_CHAR_LIST = 'Chars_list'
     BTN_CHAR_LOAD = 'Chars_load'
     BTN_MODEL_LIST = 'Model_list'
@@ -74,6 +75,7 @@ class TelegramBotWrapper:
      BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
      BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
      BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
+     BTN_LORE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
      BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
      BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
      BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
@@ -525,10 +527,21 @@ class TelegramBotWrapper:
     def options_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
-        send_text = f"""{user.name2}, 
-        Conversation length{str(len(user.history))} messages.
-        Voice: {user.silero_speaker}
-        Language: {user.language}"""
+        history_tokens = -1
+        context_tokens = -1
+        greeting_tokens = -1
+        try:
+            history_tokens = Generator.tokens_count("\n".join(user.history))
+            context_tokens = Generator.tokens_count("\n".join(user.context))
+            greeting_tokens = Generator.tokens_count("\n".join(user.greeting))
+        except Exception as e:
+            print("options_button tokens_count", e)
+
+        send_text = f"""{user.name2} ({user.char_file}), 
+Conversation length: {str(len(user.history))} messages, ({history_tokens} tokens).
+Context:{context_tokens}, greeting:{greeting_tokens} tokens.
+Voice: {user.silero_speaker}
+Language: {user.language}"""
         context.bot.send_message(
             text=send_text, chat_id=chat_id,
             reply_markup=self.get_options_keyboard(chat_id),
@@ -869,9 +882,10 @@ class TelegramBotWrapper:
             return "New name: " + user.name2, True
         if self.bot_mode in [self.MODE_QUERY]:
             user.history = []
-        if self.bot_mode == "notebook":
+        if self.bot_mode == self.MODE_NOTEBOOK:
             # If notebook mode - append to history only user_in, no additional preparing;
             user.user_in.append(user_in)
+            user.history.append('')
             user.history.append(user_in)
         elif user_in == self.GENERATOR_MODE_NEXT:
             # if user_in is "" - no user text, it is like continue generation
@@ -1015,6 +1029,9 @@ class TelegramBotWrapper:
         if self.check_user_rule(chat_id, self.BTN_DOWNLOAD):
             keyboard_raw.append(InlineKeyboardButton(
                 text="💾Save", callback_data=self.BTN_DOWNLOAD))
+        #if self.check_user_rule(chat_id, self.BTN_LORE):
+        #    keyboard_raw.append(InlineKeyboardButton(
+        #        text="📜Lore", callback_data=self.BTN_LORE))
         if self.check_user_rule(chat_id, self.BTN_CHAR_LIST):
             keyboard_raw.append(InlineKeyboardButton(
                 text="🎭Chars", callback_data=self.BTN_CHAR_LIST + "-9999"))
