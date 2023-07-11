@@ -91,7 +91,9 @@ class TelegramBotWrapper:
     # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
     impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
-    permanent_impersonate_prefixes = ["++"]  # Prefix for "impersonate" message
+    permanent_impersonate_prefixes = ["++"]  # Prefix for persistence "impersonate" message
+    permanent_user_prefixes = ["+="]  # Prefix for replace username "impersonate" message
+    permanent_contex_add = ["+-"]  # Prefix for adding string to context
     sd_api_prefixes = ["@", "📷", "📸", "📹", "🎥", "📽", ]  # Prefix for sd api generation
     sd_api_prompt_of = "Provide a detailed and vivid description of "
     sd_api_prompt_self = "Provide a detailed description of appearance, surroundings and what doing right now"
@@ -641,6 +643,7 @@ Language: {user.language}"""
         if user.msg_id:
             self.clean_last_message_markup(context, chat_id)
         user.reset_history()
+        user.load_character_file(self.characters_dir_path, user.char_file)
         send_text = self.make_template_message("mem_reset", chat_id)
         context.bot.send_message(chat_id=chat_id, text=send_text,
                                  reply_markup=self.get_options_keyboard(chat_id),
@@ -871,88 +874,81 @@ Language: {user.language}"""
     # =============================================================================
     # answer generator
     def generate_answer(self, user_in, chat_id) -> tuple[str, False]:
-        # if generation will fail, return "fail" answer
         answer = self.GENERATOR_FAIL
         user = self.users[chat_id]
-
-        # Preprocessing: add user_in to history in right order:
-        if user_in[:2] in self.permanent_impersonate_prefixes:
-            # If user_in starts with perm_prefix - just replace name2
-            user.name2 = user_in[2:]
-            return "New name: " + user.name2, True
-        if self.bot_mode in [self.MODE_QUERY]:
-            user.history = []
-        if self.bot_mode == self.MODE_NOTEBOOK:
-            # If notebook mode - append to history only user_in, no additional preparing;
-            user.user_in.append(user_in)
-            user.history.append('')
-            user.history.append(user_in)
-        elif user_in == self.GENERATOR_MODE_NEXT:
-            # if user_in is "" - no user text, it is like continue generation
-            # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
-            user.user_in.append(user_in)
-            user.history.append("")
-            user.history.append(user.name2 + ":")
-        elif user_in == self.GENERATOR_MODE_CONTINUE:
-            # if user_in is "" - no user text, it is like continue generation
-            # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
-            pass
-        elif user_in[0] in self.impersonate_prefixes:
-            # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
-            # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
-            user.user_in.append(user_in)
-            user.history.append("")
-            user.history.append(user_in[1:] + ":")
-        elif user_in[0] in self.sd_api_prefixes:
-            # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
-            # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
-            user.user_in.append(user_in)
-            user_in = self.sd_api_prompt_of + user_in[1:].strip()
-            user.history.append("")
-            user.history.append(user_in + ":")
-        elif user_in[0] in self.replace_prefixes:
-            # If user_in starts with replace_prefix - fully replace last message
-            user.user_in.append(user_in)
-            user.history[-1] = user_in[1:]
-            return user.history[-1], False
-        else:
-            # If not notebook/impersonate/continue mode then ordinary chat preparing
-            # add "name1&2:" to user and bot message (generation from name2 point of view);
-            user.user_in.append(user_in)
-            user.history.append(user.name1 + ": " + user_in)
-            user.history.append(user.name2 + ":")
-
-        # Set eos_token and stopping_strings.
-        stopping_strings = self.stopping_strings.copy()
-        eos_token = self.eos_token
-        if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
-            stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
-
-        # Make prompt: context + example + conversation history
-        available_len = self.generation_params["truncation_length"]
-        prompt = ""
-        context = f"{user.context.strip()}\n"
-        context_len = Generator.tokens_count(context)
-        if available_len >= context_len:
-            available_len -= context_len
-
-        example = user.example + "\n<START>\n"
-        greeting = "\n" + user.name2 + ": " + user.greeting
-        conversation = [example, greeting] + user.history
-
-        for s in reversed(conversation):
-            s = "\n" + s
-            s_len = Generator.tokens_count(s)
-            if available_len >= s_len:
-                prompt = s + prompt
-                available_len -= s_len
-            else:
-                break
-        prompt = context + prompt.replace("\n\n", "\n")
 
         try:
             # acquire generator lock if we can
             self.generator_lock.acquire(timeout=self.generation_timeout)
+            # if generation will fail, return "fail" answer
+
+            # Preprocessing: add user_in to history in right order:
+            if user_in[:2] in self.permanent_impersonate_prefixes:
+                # If user_in starts with perm_prefix - just replace name2
+                user.name2 = user_in[2:]
+                return "New name: " + user.name2, True
+            if self.bot_mode in [self.MODE_QUERY]:
+                user.history = []
+            if self.bot_mode == self.MODE_NOTEBOOK:
+                # If notebook mode - append to history only user_in, no additional preparing;
+                user.user_in.append(user_in)
+                user.history.append('')
+                user.history.append(user_in)
+            elif user_in == self.GENERATOR_MODE_NEXT:
+                # if user_in is "" - no user text, it is like continue generation
+                # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
+                user.user_in.append(user_in)
+                user.history.append("")
+                user.history.append(user.name2 + ":")
+            elif user_in == self.GENERATOR_MODE_CONTINUE:
+                # if user_in is "" - no user text, it is like continue generation
+                # adding "" history line to prevent bug in history sequence, add "name2:" prefix for generation
+                pass
+            elif user_in[0] in self.impersonate_prefixes:
+                # If user_in starts with prefix - impersonate-like (if you try to get "impersonate view")
+                # adding "" line to prevent bug in history sequence, user_in is prefix for bot answer
+                user.user_in.append(user_in)
+                user.history.append("")
+                user.history.append(user_in[1:] + ":")
+            elif user_in[0] in self.replace_prefixes:
+                # If user_in starts with replace_prefix - fully replace last message
+                user.user_in.append(user_in)
+                user.history[-1] = user_in[1:]
+                return user.history[-1], False
+            else:
+                # If not notebook/impersonate/continue mode then ordinary chat preparing
+                # add "name1&2:" to user and bot message (generation from name2 point of view);
+                user.user_in.append(user_in)
+                user.history.append(user.name1 + ": " + user_in)
+                user.history.append(user.name2 + ":")
+
+            # Set eos_token and stopping_strings.
+            stopping_strings = self.stopping_strings.copy()
+            eos_token = self.eos_token
+            if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
+                stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
+
+            # Make prompt: context + example + conversation history
+            available_len = self.generation_params["truncation_length"]
+            prompt = ""
+            context = f"{user.context.strip()}\n"
+            context_len = Generator.tokens_count(context)
+            if available_len >= context_len:
+                available_len -= context_len
+
+            example = user.example + "\n<START>\n"
+            greeting = "\n" + user.name2 + ": " + user.greeting
+            conversation = [example, greeting] + user.history
+
+            for s in reversed(conversation):
+                s = "\n" + s
+                s_len = Generator.tokens_count(s)
+                if available_len >= s_len:
+                    prompt = s + prompt
+                    available_len -= s_len
+                else:
+                    break
+            prompt = context + prompt.replace("\n\n", "\n")
             # Generate!
             answer = Generator.get_answer(prompt=prompt,
                                           generation_params=self.generation_params,
@@ -964,11 +960,7 @@ Language: {user.language}"""
             # If generation result zero length - return  "Empty answer."
             if len(answer) < 1:
                 answer = self.GENERATOR_EMPTY_ANSWER
-        except Exception as exception:
-            print("generate_answer", exception)
-        finally:
-            # anyway, release generator lock. Then return
-            self.generator_lock.release()
+            # Final return
             if answer not in [self.GENERATOR_EMPTY_ANSWER, self.GENERATOR_FAIL]:
                 # if everything ok - add generated answer in history and return last
                 for end in stopping_strings:
@@ -976,6 +968,11 @@ Language: {user.language}"""
                         answer = answer[:-len(end)]
                 user.history[-1] = user.history[-1] + " " + answer
             return user.history[-1], False
+        except Exception as exception:
+            print("generate_answer", exception)
+        finally:
+            # anyway, release generator lock. Then return
+            self.generator_lock.release()
 
     def prepare_text(self, original_text, user_language="en", direction="to_user"):
         text = original_text
