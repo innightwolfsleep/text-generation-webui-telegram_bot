@@ -642,7 +642,7 @@ Language: {user.language}"""
         user = self.users[chat_id]
         if user.msg_id:
             self.clean_last_message_markup(context, chat_id)
-        user.reset_history()
+        user.clear()
         user.load_character_file(self.characters_dir_path, user.char_file)
         send_text = self.make_template_message("mem_reset", chat_id)
         context.bot.send_message(chat_id=chat_id, text=send_text,
@@ -978,10 +978,15 @@ Language: {user.language}"""
         text = original_text
         # translate
         if self.model_lang != user_language:
-            if direction == "to_model":
-                text = Translator(source=user_language, target=self.model_lang).translate(text)
-            elif direction == "to_user":
-                text = Translator(source=self.model_lang, target=user_language).translate(text)
+            try:
+                print(direction, text)
+                if direction == "to_model":
+                    text = Translator(source=user_language, target=self.model_lang).translate(text)
+                elif direction == "to_user":
+                    text = Translator(source=self.model_lang, target=user_language).translate(text)
+            except Exception as e:
+                text = "can't translate text:" + str(text)
+                print("translator_error", e)
         # Add HTML tags and other...
         if direction not in ["to_model", "no_html"]:
             text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
