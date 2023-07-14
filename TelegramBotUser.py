@@ -24,7 +24,7 @@ class TelegramBotUser:
 
     def __init__(self,
                  char_file="",
-                 name1="You",
+                 name1="User",
                  name2="Bot",
                  context="",
                  example="",
@@ -32,7 +32,7 @@ class TelegramBotUser:
                  silero_speaker="None",
                  silero_model_id="None",
                  turn_template="",
-                 greeting="Hi!"):
+                 greeting="Hello."):
         """
         Init User class with default attribute
         :param name1: username
@@ -68,11 +68,17 @@ class TelegramBotUser:
         self.history = self.history[:-2]
         return user_in
 
-    def reset_history(self):
-        #  clear all user history
+    def clear(self):
+        #  clear all data except char_file
+        self.name1 = "User"
+        self.name2 = "Bot"
+        self.context = ""
+        self.example = ""
+        self.turn_template = ""
         self.user_in = []
         self.history = []
         self.msg_id = []
+        self.greeting = "Hello."
 
     def to_json(self):
         #  Converts all data to json string
@@ -97,7 +103,7 @@ class TelegramBotUser:
         data = json.loads(s)
         try:
             self.char_file = data["char_file"] if "char_file" in data else ""
-            self.name1 = data["name1"] if "name1" in data else "You"
+            self.name1 = data["name1"] if "name1" in data else "User"
             self.name2 = data["name2"] if "name2" in data else "Bot"
             self.context = data["context"] if "context" in data else ""
             self.example = data["example"] if "example" in data else ""
@@ -108,13 +114,14 @@ class TelegramBotUser:
             self.user_in = data["user_in"]
             self.history = data["history"]
             self.msg_id = data["msg_id"]
-            self.greeting = data["greeting"] if "greeting" in data else "Hi!"
+            self.greeting = data["greeting"] if "greeting" in data else "Hello."
             return True
         except Exception as exception:
             print("from_json", exception)
             return False
 
     def load_character_file(self, characters_dir_path: str, char_file: str):
+        self.clear()
         # Copy default user data. If reading will fail - return default user data
         try:
             # Try to read char file.
@@ -126,6 +133,10 @@ class TelegramBotUser:
                     data = yaml.safe_load(user_file.read())
             #  load persona and scenario
             self.char_file = char_file
+            if 'user' in data:
+                self.name1 = data['user']
+            if 'bot' in data:
+                self.name2 = data['bot']
             if 'you_name' in data:
                 self.name1 = data['you_name']
             if 'char_name' in data:
@@ -141,6 +152,10 @@ class TelegramBotUser:
                 self.context += f"{data['context'].strip()}\n"
             if 'world_scenario' in data:
                 self.context += f"Scenario: {data['world_scenario'].strip()}\n"
+            if 'personality' in data:
+                self.context += f"Personality: {data['world_scenario'].strip()}\n"
+            if 'description' in data:
+                self.context += f"Description: {data['world_scenario'].strip()}\n"
             #  add dialogue examples
             if 'example_dialogue' in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
