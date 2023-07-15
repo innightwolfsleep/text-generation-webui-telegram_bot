@@ -38,4 +38,4 @@ FEATURES:
 - voice generating ([silero](https://github.com/snakers4/silero-models)), en and ru variants
 - translation_as_hidden_text option in .cfg - if you want to learn english with bot)))
 - telegram_users.txt - list of permitted users (if empty - permit for all)
-- antiflood - one message per 15 sec from one user
+- antiflood - one message per 15 sec from one user limit
