@@ -393,12 +393,12 @@ class TelegramBotWrapper:
                 users_list = users_file.read().split()
         else:
             users_list = []
+        print(users_list, chat_id, chat_id in users_list or len(users_list) == 0)
         # check
-        if chat_id in users_list or len(users_list) == 0:
+        if str(chat_id) in users_list or len(users_list) == 0:
             return True
         else:
             return False
-
 
     def send(self, context: CallbackContext, chat_id: int, text: str):
         user = self.users[chat_id]
@@ -1003,7 +1003,6 @@ Language: {user.language}"""
         # translate
         if self.model_lang != user_language:
             try:
-                print(direction, text)
                 if direction == "to_model":
                     text = Translator(source=user_language, target=self.model_lang).translate(text)
                 elif direction == "to_user":
