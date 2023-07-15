@@ -149,6 +149,7 @@ class TelegramBotWrapper:
                  history_dir_path="history",
                  token_file_path="telegram_token.txt",
                  admins_file_path="telegram_admins.txt",
+                 users_file_path="telegram_users.txt",
                  config_file_path="telegram_config.cfg",
                  ):
         """
@@ -163,6 +164,7 @@ class TelegramBotWrapper:
         :param history_dir_path: place where stored chat history. Default is "extensions/telegram_bot/history".
         :param token_file_path: path to token file. Default is "extensions/telegram_bot/telegram_token.txt".
         :param admins_file_path: path to admins file - user separated by "\n"
+        :param users_file_path: permitted users separated by "\n". If empty - no restriction
         :param config_file_path: path to config file
         :return: None
         """
@@ -171,6 +173,8 @@ class TelegramBotWrapper:
         self.characters_dir_path = characters_dir_path
         self.presets_dir_path = presets_dir_path
         self.token_file_path = token_file_path
+        self.admins_file_path = admins_file_path
+        self.users_file_path = users_file_path
         # Set bot mode
         self.bot_mode = bot_mode
         # Set default character json file
@@ -181,12 +185,6 @@ class TelegramBotWrapper:
         self.user_lang = user_lang
         self.stopping_strings = []
         self.eos_token = None
-        # Read admins list
-        if os.path.exists(admins_file_path):
-            with open(admins_file_path, "r") as admins_file:
-                self.admins_list = admins_file.read().split()
-        else:
-            self.admins_list = []
         # Read config_file if existed, overwrite bot config
         self.load_config_file(config_file_path)
         self.load_preset(self.default_preset)
@@ -218,6 +216,10 @@ class TelegramBotWrapper:
                         self.history_dir_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "token_file_path":
                         self.token_file_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "admins_file_path":
+                        self.admins_file_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "users_file_path":
+                        self.users_file_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "translation_as_hidden_text":
                         self.translation_as_hidden_text = s.split("=")[-1].lower()
                     if "=" in s and s.split("=")[0] == "stopping_strings":
@@ -286,6 +288,8 @@ class TelegramBotWrapper:
     # Additional telegram actions
     def thread_welcome_message(self, upd: Update, context: CallbackContext):
         chat_id = upd.effective_chat.id
+        if not self.check_user_permission(chat_id):
+            return False
         self.init_check_user(chat_id)
         send_text = self.make_template_message("char_loaded", chat_id)
         context.bot.send_message(
@@ -352,6 +356,8 @@ class TelegramBotWrapper:
 
     def thread_get_json_document(self, upd: Update, context: CallbackContext):
         chat_id = upd.message.chat.id
+        if not self.check_user_permission(chat_id):
+            return False
         self.init_check_user(chat_id)
         default_user_file_path = str(Path(f'{self.history_dir_path}/{str(chat_id)}.json'))
         with open(default_user_file_path, 'wb') as f:
@@ -379,6 +385,20 @@ class TelegramBotWrapper:
             context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
             time.sleep(6)
             limit_counter -= 1
+
+    def check_user_permission(self, chat_id):
+        # Read admins list
+        if os.path.exists(self.users_file_path):
+            with open(self.users_file_path, "r") as users_file:
+                users_list = users_file.read().split()
+        else:
+            users_list = []
+        print(users_list, chat_id, chat_id in users_list or len(users_list) == 0)
+        # check
+        if str(chat_id) in users_list or len(users_list) == 0:
+            return True
+        else:
+            return False
 
     def send(self, context: CallbackContext, chat_id: int, text: str):
         user = self.users[chat_id]
@@ -433,6 +453,8 @@ class TelegramBotWrapper:
         # Extract user input and chat ID
         user_text = upd.message.text
         chat_id = upd.message.chat.id
+        if not self.check_user_permission(chat_id):
+            return False
         # Send "typing" message
         typing = self.typing_status_start(context, chat_id)
         try:
@@ -467,6 +489,8 @@ class TelegramBotWrapper:
         chat_id = query.message.chat.id
         msg_id = query.message.message_id
         option = query.data
+        if not self.check_user_permission(chat_id):
+            return False
         # Send "typing" message
         typing = self.typing_status_start(context, chat_id)
         try:
@@ -979,7 +1003,6 @@ Language: {user.language}"""
         # translate
         if self.model_lang != user_language:
             try:
-                print(direction, text)
                 if direction == "to_model":
                     text = Translator(source=user_language, target=self.model_lang).translate(text)
                 elif direction == "to_user":
@@ -1005,7 +1028,14 @@ Language: {user.language}"""
         option = sub(r"[0123456789-]", "", option)
         if option.endswith(self.BTN_OPTION):
             option = self.BTN_OPTION
-        if chat_id in self.admins_list or self.bot_mode == self.MODE_ADMIN:
+        # Read admins list
+        if os.path.exists(self.admins_file_path):
+            with open(self.admins_file_path, "r") as admins_file:
+                admins_list = admins_file.read().split()
+        else:
+            admins_list = []
+        # check admin rules
+        if chat_id in admins_list or self.bot_mode == self.MODE_ADMIN:
             return bool(self.user_rules[option][self.MODE_ADMIN])
         else:
             return bool(self.user_rules[option][self.bot_mode])
