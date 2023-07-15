@@ -24,7 +24,7 @@ class TelegramBotUser:
 
     def __init__(self,
                  char_file="",
-                 name1="User",
+                 name1="You",
                  name2="Bot",
                  context="",
                  example="",
@@ -70,7 +70,7 @@ class TelegramBotUser:
 
     def clear(self):
         #  clear all data except char_file
-        self.name1 = "User"
+        self.name1 = "You"
         self.name2 = "Bot"
         self.context = ""
         self.example = ""
@@ -103,7 +103,7 @@ class TelegramBotUser:
         data = json.loads(s)
         try:
             self.char_file = data["char_file"] if "char_file" in data else ""
-            self.name1 = data["name1"] if "name1" in data else "User"
+            self.name1 = data["name1"] if "name1" in data else "You"
             self.name2 = data["name2"] if "name2" in data else "Bot"
             self.context = data["context"] if "context" in data else ""
             self.example = data["example"] if "example" in data else ""
