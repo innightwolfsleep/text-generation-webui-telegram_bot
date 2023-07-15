@@ -138,6 +138,11 @@ class TelegramBotWrapper:
     # dict of User data dicts, here stored all users' session info.
     users: Dict[int, User] = {}
 
+    # last message timestamp to avoid message flood.
+    last_msg_timestamp: Dict[int, int] = {}
+    # Delay between new messages to avoid flooding (sec)
+    flood_avoid_delay = 10.0
+
     def __init__(self,
                  bot_mode="admin",
                  default_char="Example.yaml",
@@ -393,9 +398,18 @@ class TelegramBotWrapper:
                 users_list = users_file.read().split()
         else:
             users_list = []
-        print(users_list, chat_id, chat_id in users_list or len(users_list) == 0)
         # check
         if str(chat_id) in users_list or len(users_list) == 0:
+            return True
+        else:
+            return False
+
+    def check_user_flood(self, chat_id):
+        if chat_id not in self.last_msg_timestamp:
+            self.last_msg_timestamp.update({chat_id: time.time()})
+            return True
+        if time.time() - self.flood_avoid_delay > self.last_msg_timestamp[chat_id]:
+            self.last_msg_timestamp.update({chat_id: time.time()})
             return True
         else:
             return False
@@ -454,6 +468,8 @@ class TelegramBotWrapper:
         user_text = upd.message.text
         chat_id = upd.message.chat.id
         if not self.check_user_permission(chat_id):
+            return False
+        if not self.check_user_flood(chat_id):
             return False
         # Send "typing" message
         typing = self.typing_status_start(context, chat_id)
