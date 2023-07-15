@@ -37,6 +37,7 @@ FEATURES:
 - integrated auto-translate (you can set model/user language parameter) 
 - voice generating ([silero](https://github.com/snakers4/silero-models)), en and ru variants
 - translation_as_hidden_text option in .cfg - if you want to learn english with bot)))
+- telegram_users.txt - list of permitted users (if empty - permit for all)
 
 TBC:
 - replace "X typing" by yield from generator
