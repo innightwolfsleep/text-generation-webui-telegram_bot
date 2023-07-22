@@ -171,7 +171,7 @@ class TelegramBotUser:
             self.user_in = []
             self.history = []
         except Exception as exception:
-            print("load_char_json_file", exception)
+            print("load_character_file", exception)
         finally:
             return self
 
@@ -189,7 +189,9 @@ class TelegramBotUser:
         if exists(user_char_history_path):
             self.load_user_history(user_char_history_path)
         elif exists(user_char_history_old_path):
+            char_file = self.char_file
             self.load_user_history(user_char_history_old_path)
+            self.char_file = char_file
 
     def load_user_history(self, file_path):
         try:
