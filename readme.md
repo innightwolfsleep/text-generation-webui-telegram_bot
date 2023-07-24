@@ -44,39 +44,47 @@ FEATURES:
 
 CONFIGURATION:
 
-telegram_config.cfg
 ```
-  bot_mode=admin  
-	- admin - bot answer for everyone in chat-like mode. All buttons, include settings-for-all are avariable for everyone. (Default)
-	- chat - bot answer for everyone in chat-like mode. All buttons, exclude settings-for-all are avariable for everyone. (Recommended for chatting)
-	- chat-restricted - same as chat, but user can't change default character
-	- persona - same as chat-restricted, but reset/regenerate/delete message are unavailable too. 
-	- notebook - notebook-like mode. Prefixes wont added automaticaly, only "\n" separate user and bot messages. Restriction like chat mode.
-	- query - same as notebook, but without history. Each question for bot is like new convrsation withot influence of previous questions
-  characters_dir_path=characters
-  default_char=Example.yaml
-	default cahracter and path to cahracters folder
-  presets_dir_path=presets
-  default_preset=Shortwave.yaml
-	default generation preset and path to preset folder
-  model_lang=en
-  user_lang=en
-	default model and user language. User language can be switched by users, individualy.
-  html_tag_open=<pre>
-  html_tag_close=</pre>
-	tags for bot answers in tg. By default - preformatted text (pre)
-  history_dir_path=extensions/telegram_bot/history
-	directory for users history
-  token_file_path=extensions/telegram_bot/telegram_token.txt
-	bot token. Ask https://t.me/BotFather
-  admins_file_path=extensions/telegram_bot/telegram_admins.txt
-	users whos id's in admins_file switched to admin mode and can choose settings-for-all (generating settings and model)
-  users_file_path=extensions/telegram_bot/telegram_users.txt
-	if just one id in users_file - bot will ignore all users except this id (id's). Even admin will be ignored
-  stopping_strings=<END>,<START>,end{code}
-	generating settings
-  eos_token=None
-	generating settings
-  translation_as_hidden_text=on
-	if on and model/user lang not the same - translation will be writed under spoiler. If off - translation without spoiler, no original text in message.
+telegram_config.cfg
+	bot_mode=admin  
+		- admin - bot answer for everyone in chat-like mode. All buttons, include settings-for-all are avariable for everyone. (Default)
+		- chat - bot answer for everyone in chat-like mode. All buttons, exclude settings-for-all are avariable for everyone. (Recommended for chatting)
+		- chat-restricted - same as chat, but user can't change default character
+		- persona - same as chat-restricted, but reset/regenerate/delete message are unavailable too. 
+		- notebook - notebook-like mode. Prefixes wont added automaticaly, only "\n" separate user and bot messages. Restriction like chat mode.
+		- query - same as notebook, but without history. Each question for bot is like new convrsation withot influence of previous questions
+	characters_dir_path=characters
+	default_char=Example.yaml
+		default cahracter and path to cahracters folder
+	presets_dir_path=presets
+	default_preset=Shortwave.yaml
+		default generation preset and path to preset folder
+	model_lang=en
+	user_lang=en
+		default model and user language. User language can be switched by users, individualy.
+	html_tag_open=<pre>
+	html_tag_close=</pre>
+		tags for bot answers in tg. By default - preformatted text (pre)
+	history_dir_path=extensions/telegram_bot/history
+		directory for users history
+	token_file_path=extensions/telegram_bot/telegram_token.txt
+		bot token. Ask https://t.me/BotFather
+	admins_file_path=extensions/telegram_bot/telegram_admins.txt
+		users whos id's in admins_file switched to admin mode and can choose settings-for-all (generating settings and model)
+	users_file_path=extensions/telegram_bot/telegram_users.txt
+		if just one id in users_file - bot will ignore all users except this id (id's). Even admin will be ignored
+	stopping_strings=<END>,<START>,end{code}
+	eos_token=None
+		generating settings
+	translation_as_hidden_text=on
+		if "on" and model/user lang not the same - translation will be writed under spoiler. If "off" - translation without spoiler, no original text in message.
+
+telegram_admins.txt
+	list of users id who forced to admin mode. 
+
+telegram_users.txt
+	list og users id (or groups id) who permitted interact with bot. If empty - everyone permitted
+
+telegram_token.txt
+	telegram bot token
 ```
