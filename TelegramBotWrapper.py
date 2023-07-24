@@ -1051,7 +1051,7 @@ Language: {user.language}"""
         else:
             admins_list = []
         # check admin rules
-        if chat_id in admins_list or self.bot_mode == self.MODE_ADMIN:
+        if str(chat_id) in admins_list or self.bot_mode == self.MODE_ADMIN:
             return bool(self.user_rules[option][self.MODE_ADMIN])
         else:
             return bool(self.user_rules[option][self.bot_mode])
