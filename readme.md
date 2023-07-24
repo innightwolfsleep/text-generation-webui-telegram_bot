@@ -59,8 +59,8 @@ telegram_config.cfg
   default_preset=Shortwave.yaml
   model_lang=en
   user_lang=en
-  html_tag_open=\<pre\>
-  html_tag_close=\<\/pre\>
+  html_tag_open=<pre>
+  html_tag_close=</pre>
   history_dir_path=extensions/telegram_bot/history
   token_file_path=extensions/telegram_bot/telegram_token.txt
   admins_file_path=extensions/telegram_bot/telegram_admins.txt
