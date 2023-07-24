@@ -1,4 +1,4 @@
-#Extension connecting text-generator to telegram bot api.
+Extension connecting text-generator to telegram bot api.
 -
 ![Image1](https://github.com/innightwolfsleep/storage/raw/main/textgen_telegram.PNG)
 
