@@ -43,9 +43,8 @@ FEATURES:
 
 
 CONFIGURATION:
-  ```
 telegram_config.cfg
-  ```
+```
   **bot_mode=admin**  
   - admin - bot answer for everyone in chat-like mode. All buttons, include settings-for-all are avariable for everyone. (Default)
   - chat - bot answer for everyone in chat-like mode. All buttons, exclude settings-for-all are avariable for everyone. (Recommended for chatting)
@@ -84,4 +83,4 @@ telegram_config.cfg
   
   **translation_as_hidden_text=on**
 
-  
+```
