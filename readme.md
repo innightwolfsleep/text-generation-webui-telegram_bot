@@ -40,11 +40,10 @@ FEATURES:
 - telegram_users.txt - list of permitted users (if empty - permit for all)
 - antiflood - one message per 15 sec from one user limit
 
-<details>
-  <summary>CONFIGURATION:</summary>
-  ```
-  telegram_config.cfg
-  ```
+
+
+CONFIGURATION:
+  ```telegram_config.cfg```
   **bot_mode=admin**  
   - admin - bot answer for everyone in chat-like mode. All buttons, include settings-for-all are avariable for everyone. (Default)
   - chat - bot answer for everyone in chat-like mode. All buttons, exclude settings-for-all are avariable for everyone. (Recommended for chatting)
@@ -67,5 +66,3 @@ FEATURES:
   **stopping_strings=<END>,<START>,end{code}**
   **eos_token=None**
   **translation_as_hidden_text=on**
-  
-</details>
