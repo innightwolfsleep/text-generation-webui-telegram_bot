@@ -39,3 +39,33 @@ FEATURES:
 - translation_as_hidden_text option in .cfg - if you want to learn english with bot)))
 - telegram_users.txt - list of permitted users (if empty - permit for all)
 - antiflood - one message per 15 sec from one user limit
+
+<details>
+  <summary>CONFIGURATION:</summary>
+  ```
+  telegram_config.cfg
+  ```
+  **bot_mode=admin**  
+  - admin - bot answer for everyone in chat-like mode. All buttons, include settings-for-all are avariable for everyone. (Default)
+  - chat - bot answer for everyone in chat-like mode. All buttons, exclude settings-for-all are avariable for everyone. (Recommended for chatting)
+  - chat-restricted - same as chat, but user can't change default character
+  - persona - same as chat-restricted, but reset/regenerate/delete message are unavailable too. 
+  - notebook - notebook-like mode. Restriction like in chat mode.
+  - query - same as notebook, but without history. Each question fo bot is like new convrsation.
+  **characters_dir_path=characters**
+  **default_char=Example.yaml**
+  **presets_dir_path=presets**
+  **default_preset=Shortwave.yaml**
+  **model_lang=en**
+  **user_lang=en**
+  **html_tag_open=<pre>**
+  **html_tag_close=</pre>**
+  **history_dir_path=extensions/telegram_bot/history**
+  **token_file_path=extensions/telegram_bot/telegram_token.txt**
+  **admins_file_path=extensions/telegram_bot/telegram_admins.txt**
+  **users_file_path=extensions/telegram_bot/telegram_users.txt**
+  **stopping_strings=<END>,<START>,end{code}**
+  **eos_token=None**
+  **translation_as_hidden_text=on**
+  
+</details>
