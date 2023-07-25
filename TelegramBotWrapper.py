@@ -37,7 +37,6 @@ class TelegramBotWrapper:
     MODE_NOTEBOOK = "notebook"
     MODE_PERSONA = "persona"
     MODE_QUERY = "query"
-    MODE_VICUNA = "vicuna"
     BTN_CONTINUE = 'Continue'
     BTN_NEXT = 'Next'
     BTN_DEL_WORD = 'Delete_one_word'
@@ -66,49 +65,49 @@ class TelegramBotWrapper:
     user_rules = {
         # messages buttons
         BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0,
-                   MODE_VICUNA: 1},
+                   },
         BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
-                       MODE_VICUNA: 1},
+                       },
         BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
-                       MODE_VICUNA: 1},
+                       },
         BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
-                    MODE_VICUNA: 1},
+                    },
         BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
-                     MODE_VICUNA: 1},
+                     },
         BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                     MODE_VICUNA: 1},
+                     },
         # option buttons
         BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
-                        MODE_VICUNA: 1},
+                        },
         BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
-                        MODE_VICUNA: 1},
+                        },
         BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
-                    MODE_VICUNA: 1},
+                    },
         BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                       MODE_VICUNA: 1},
+                       },
         BTN_LORE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                   MODE_VICUNA: 1},
+                   },
         BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                        MODE_VICUNA: 1},
+                        },
         BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                        MODE_VICUNA: 1},
+                        },
         BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                         MODE_VICUNA: 1},
+                         },
         BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                         MODE_VICUNA: 1},
+                         },
         BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
-                          MODE_VICUNA: 0},
+                          },
         BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
-                          MODE_VICUNA: 0},
+                          },
         BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
-                         MODE_VICUNA: 0},
+                         },
         BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
-                         MODE_VICUNA: 0},
+                         },
         BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                     MODE_VICUNA: 1},
+                     },
         # allow to get messages
         GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
-                      MODE_VICUNA: 1},
+                      },
     }    # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
     impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
@@ -986,7 +985,7 @@ Language: {user.language}"""
             # Set eos_token and stopping_strings.
             stopping_strings = self.stopping_strings.copy()
             eos_token = self.eos_token
-            if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN, self.MODE_VICUNA]:
+            if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
                 stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
 
             # adjust context/greeting/example
