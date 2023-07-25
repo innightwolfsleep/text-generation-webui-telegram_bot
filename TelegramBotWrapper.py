@@ -130,7 +130,6 @@ class TelegramBotWrapper:
     html_tag = ["<pre>", "</pre>"]
     translate_html_tag = ['<span class="tg-spoiler">', '</span>']
     translation_as_hidden_text = "off"
-    vicuna_mode = "off"
     generation_params = {
         'max_new_tokens': 256,
         'seed': -1.0,
@@ -247,8 +246,6 @@ class TelegramBotWrapper:
                         self.admins_file_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "users_file_path":
                         self.users_file_path = s.split("=")[-1]
-                    if "=" in s and s.split("=")[0] == "vicuna_mode":
-                        self.vicuna_mode = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "translation_as_hidden_text":
                         self.translation_as_hidden_text = s.split("=")[-1].lower()
                     if "=" in s and s.split("=")[0] == "stopping_strings":
