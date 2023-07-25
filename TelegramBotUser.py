@@ -78,7 +78,7 @@ class TelegramBotUser:
         self.user_in = []
         self.history = []
         self.msg_id = []
-        self.greeting = "Hello."
+        self.greeting = ""
 
     def to_json(self):
         #  Converts all data to json string

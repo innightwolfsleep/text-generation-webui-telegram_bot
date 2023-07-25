@@ -37,6 +37,7 @@ class TelegramBotWrapper:
     MODE_NOTEBOOK = "notebook"
     MODE_PERSONA = "persona"
     MODE_QUERY = "query"
+    MODE_VICUNA = "vicuna"
     BTN_CONTINUE = 'Continue'
     BTN_NEXT = 'Next'
     BTN_DEL_WORD = 'Delete_one_word'
@@ -63,32 +64,52 @@ class TelegramBotWrapper:
     # Supplementary structure
     # Rules for various mode. 0=False=Restricted, 1=True=Allowed
     user_rules = {
-     # messages buttons
-     BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0, },
-     BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-     BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     # option buttons
-     BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-     BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1, },
-     BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_LORE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0, },
-     BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-     # allow to get messages
-     GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1, },
-    }
-    # Internal, changeable settings
+        # messages buttons
+        BTN_NEXT: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 0,
+                   MODE_VICUNA: 1},
+        BTN_CONTINUE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
+                       MODE_VICUNA: 1},
+        BTN_DEL_WORD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
+                       MODE_VICUNA: 1},
+        BTN_REGEN: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
+                    MODE_VICUNA: 1},
+        BTN_CUTOFF: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
+                     MODE_VICUNA: 1},
+        BTN_OPTION: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                     MODE_VICUNA: 1},
+        # option buttons
+        BTN_CHAR_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
+                        MODE_VICUNA: 1},
+        BTN_CHAR_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 0, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 1,
+                        MODE_VICUNA: 1},
+        BTN_RESET: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 0, MODE_QUERY: 0,
+                    MODE_VICUNA: 1},
+        BTN_DOWNLOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                       MODE_VICUNA: 1},
+        BTN_LORE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                   MODE_VICUNA: 1},
+        BTN_LANG_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                        MODE_VICUNA: 1},
+        BTN_LANG_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                        MODE_VICUNA: 1},
+        BTN_VOICE_LIST: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                         MODE_VICUNA: 1},
+        BTN_VOICE_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                         MODE_VICUNA: 1},
+        BTN_PRESET_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
+                          MODE_VICUNA: 0},
+        BTN_PRESET_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
+                          MODE_VICUNA: 0},
+        BTN_MODEL_LIST: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
+                         MODE_VICUNA: 0},
+        BTN_MODEL_LOAD: {MODE_ADMIN: 1, MODE_CHAT: 0, MODE_CHAT_R: 0, MODE_NOTEBOOK: 0, MODE_PERSONA: 0, MODE_QUERY: 0,
+                         MODE_VICUNA: 0},
+        BTN_DELETE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                     MODE_VICUNA: 1},
+        # allow to get messages
+        GET_MESSAGE: {MODE_ADMIN: 1, MODE_CHAT: 1, MODE_CHAT_R: 1, MODE_NOTEBOOK: 1, MODE_PERSONA: 1, MODE_QUERY: 1,
+                      MODE_VICUNA: 1},
+    }    # Internal, changeable settings
     replace_prefixes = ["!", "-"]  # Prefix to replace last message
     impersonate_prefixes = ["#", "+"]  # Prefix for "impersonate" message
     permanent_impersonate_prefixes = ["++"]  # Prefix for persistence "impersonate" message
@@ -109,6 +130,7 @@ class TelegramBotWrapper:
     html_tag = ["<pre>", "</pre>"]
     translate_html_tag = ['<span class="tg-spoiler">', '</span>']
     translation_as_hidden_text = "off"
+    vicuna_mode = "off"
     generation_params = {
         'max_new_tokens': 256,
         'seed': -1.0,
@@ -225,6 +247,8 @@ class TelegramBotWrapper:
                         self.admins_file_path = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "users_file_path":
                         self.users_file_path = s.split("=")[-1]
+                    if "=" in s and s.split("=")[0] == "vicuna_mode":
+                        self.vicuna_mode = s.split("=")[-1]
                     if "=" in s and s.split("=")[0] == "translation_as_hidden_text":
                         self.translation_as_hidden_text = s.split("=")[-1].lower()
                     if "=" in s and s.split("=")[0] == "stopping_strings":
@@ -929,7 +953,7 @@ Language: {user.language}"""
                 return "New name: " + user.name2, True
             if self.bot_mode in [self.MODE_QUERY]:
                 user.history = []
-            if self.bot_mode == self.MODE_NOTEBOOK:
+            if self.bot_mode in [self.MODE_NOTEBOOK]:
                 # If notebook mode - append to history only user_in, no additional preparing;
                 user.user_in.append(user_in)
                 user.history.append('')
@@ -965,23 +989,35 @@ Language: {user.language}"""
             # Set eos_token and stopping_strings.
             stopping_strings = self.stopping_strings.copy()
             eos_token = self.eos_token
-            if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN]:
+            if self.bot_mode in [self.MODE_CHAT, self.MODE_CHAT_R, self.MODE_ADMIN, self.MODE_VICUNA]:
                 stopping_strings += ["\n" + user.name1 + ":", "\n" + user.name2 + ":", ]
 
+            # adjust context/greeting/example
+            if user.context.strip().endswith("\n"):
+                context = f"{user.context.strip()}"
+            else:
+                context = f"{user.context.strip()}\n"
+            if len(user.example) > 0:
+                example = user.example + "\n<START>\n"
+            else:
+                example = ""
+            if len(user.greeting) > 0:
+                greeting = "\n" + user.name2 + ": " + user.greeting
+            else:
+                greeting = ""
             # Make prompt: context + example + conversation history
-            available_len = self.generation_params["truncation_length"]
             prompt = ""
-            context = f"{user.context.strip()}\n"
+            available_len = self.generation_params["truncation_length"]
             context_len = Generator.tokens_count(context)
-            if available_len >= context_len:
-                available_len -= context_len
+            available_len -= context_len
+            if available_len < 0:
+                available_len = 0
+                print("telegram_bot: ", chat_id, " - CONTEXT IS TOO LONG!!!")
 
-            example = user.example + "\n<START>\n"
-            greeting = "\n" + user.name2 + ": " + user.greeting
             conversation = [example, greeting] + user.history
 
             for s in reversed(conversation):
-                s = "\n" + s
+                s = "\n" + s if len(s) > 0 else s
                 s_len = Generator.tokens_count(s)
                 if available_len >= s_len:
                     prompt = s + prompt
@@ -1077,7 +1113,7 @@ Language: {user.language}"""
         if self.check_user_rule(chat_id, self.BTN_DOWNLOAD):
             keyboard_raw.append(InlineKeyboardButton(
                 text="💾Save", callback_data=self.BTN_DOWNLOAD))
-        #if self.check_user_rule(chat_id, self.BTN_LORE):
+        # if self.check_user_rule(chat_id, self.BTN_LORE):
         #    keyboard_raw.append(InlineKeyboardButton(
         #        text="📜Lore", callback_data=self.BTN_LORE))
         if self.check_user_rule(chat_id, self.BTN_CHAR_LIST):
