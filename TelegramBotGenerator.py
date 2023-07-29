@@ -1,10 +1,35 @@
-import time
+import importlib
 
-import server
-from modules.utils import get_available_models
-from modules.text_generation import generate_reply
-from modules.text_generation import encode
-from modules import shared
+#  generator obj
+generator = None
+debug_flag = True
+
+# import generator
+def init(script="GeneratorLlamaCpp", model_path="", n_ctx=4096):
+    """Initiate generator type
+    generator - is a class Generator from package generators/script
+    Generator class should contain method:
+       __init__() - method to initiate model
+       get_answer() - method get answer
+       tokens_count(str) - method to get str length in tokens
+    If Generator.model_change_allowed = True - also method:
+       get_model_list() - get list of available models
+       load_model(str) - load new model
+
+    Args:
+      script: script type, one of generators/*.py files
+      model_path: path to model file, if generator needs
+      n_ctx: context length, generator if needs
+    """
+    try:
+        generator_class = getattr(
+            importlib.import_module("generators." + script), "Generator")
+    except ImportError:
+        generator_class = getattr(
+            importlib.import_module("extensions.telegram_bot.generators." + script), "Generator")
+    global generator
+    generator = generator_class(model_path, n_ctx)
+
 
 
 def get_answer(
@@ -12,74 +37,66 @@ def get_answer(
         generation_params,
         eos_token,
         stopping_strings,
-        default_answer,
-        user,
+        default_answer: str,
         turn_template='',
-        **kwargs):
-    generation_params.update({"turn_template": turn_template})
-    generation_params.update({"name1": user['name1']})
-    generation_params.update({"name2": user['name2']})
-    generation_params.update({"context": user['context']})
-    generation_params.update({"greeting": user['greeting']})
-    generation_params.update({"stream": False,
-                              'max_new_tokens': int(generation_params.get('max_new_tokens', generation_params.get('max_length', 200))),
-                              'do_sample': bool(generation_params.get('do_sample', True)),
-                              'temperature': float(generation_params.get('temperature', 0.5)),
-                              'top_p': float(generation_params.get('top_p', 1)),
-                              'typical_p': float(generation_params.get('typical_p', generation_params.get('typical', 1))),
-                              'epsilon_cutoff': float(generation_params.get('epsilon_cutoff', 0)),
-                              'eta_cutoff': float(generation_params.get('eta_cutoff', 0)),
-                              'tfs': float(generation_params.get('tfs', 1)),
-                              'top_a': float(generation_params.get('top_a', 0)),
-                              'repetition_penalty': float(generation_params.get('repetition_penalty', generation_params.get('rep_pen', 1.1))),
-                              'repetition_penalty_range': int(generation_params.get('repetition_penalty_range', 0)),
-                              'encoder_repetition_penalty': float(generation_params.get('encoder_repetition_penalty', 1.0)),
-                              'top_k': int(generation_params.get('top_k', 0)),
-                              'min_length': int(generation_params.get('min_length', 0)),
-                              'no_repeat_ngram_size': int(generation_params.get('no_repeat_ngram_size', 0)),
-                              'num_beams': int(generation_params.get('num_beams', 1)),
-                              'penalty_alpha': float(generation_params.get('penalty_alpha', 0)),
-                              'length_penalty': float(generation_params.get('length_penalty', 1)),
-                              'early_stopping': bool(generation_params.get('early_stopping', False)),
-                              'mirostat_mode': int(generation_params.get('mirostat_mode', 0)),
-                              'mirostat_tau': float(generation_params.get('mirostat_tau', 5)),
-                              'mirostat_eta': float(generation_params.get('mirostat_eta', 0.1)),
-                              'seed': int(generation_params.get('seed', -1)),
-                              'add_bos_token': bool(generation_params.get('add_bos_token', True)),
-                              'truncation_length': int(generation_params.get('truncation_length', generation_params.get('max_context_length', 2048))),
-                              'ban_eos_token': bool(generation_params.get('ban_eos_token', False)),
-                              'skip_special_tokens': bool(generation_params.get('skip_special_tokens', True)),
-                              'custom_stopping_strings': '',  # leave this blank
-                              'stopping_strings': generation_params.get('stopping_strings', []),
-                              })
-    generator = generate_reply(question=prompt,
-                               state=generation_params,
-                               stopping_strings=stopping_strings)
-    # This is "bad" implementation of getting answer, should be reworked
+        **kwargs) -> str:
+    """Generate and return answer string.
+
+    Args:
+      prompt: user prompt
+      generation_params: dict with various generator params
+      eos_token: list with end of string tokens
+      stopping_strings: list with strings stopping generating
+      default_answer: if generating fails, default_answer will be returned
+      turn_template: turn template if generator needs it
+
+    Returns:
+      generation result string
+    """
+    # Preparing, add stopping_strings
     answer = default_answer
-    for a in generator:
-        if isinstance(a, str):
-            answer = a
-        else:
-            answer = a[0]
-    # make adds
+    generation_params.update({"turn_template": turn_template})
+    if debug_flag:
+        print("stopping_strings =", stopping_strings)
+        print(prompt, end="")
+    try:
+        answer = generator.get_answer(prompt, generation_params, eos_token, stopping_strings, default_answer,
+                                      turn_template)
+    except Exception as e:
+        print("generation error:", e)
+    if debug_flag:
+        print(answer)
     return answer
 
 
 def tokens_count(text: str):
-    return len(encode(text)[0])
+    """Return string length in tokens
+
+    Args:
+      text: text to be counted
+
+    Returns:
+      text token length (int)
+    """
+    return generator.tokens_count(text)
 
 
 def get_model_list():
-    return get_available_models()
+    """Return list of available models
+
+    Returns:
+      list of available models
+    """
+    return generator.get_model_list()
 
 
 def load_model(model_file: str):
-    server.unload_model()
-    server.model_name = model_file
-    if model_file != '':
-        shared.model, shared.tokenizer = server.load_model(
-            shared.model_name)
-    while server.load_model is None:
-        time.sleep(1)
-    return True
+    """Change current llm model to model_file
+
+    Args:
+      model_file: model file to be loaded
+
+    Returns:
+      True if loading successful, otherwise False
+    """
+    return generator.load_model(model_file)

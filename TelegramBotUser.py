@@ -33,13 +33,13 @@ class TelegramBotUser:
                  silero_model_id="None",
                  turn_template="",
                  greeting="Hello."):
-        """
-        Init User class with default attribute
-        :param name1: username
-        :param name2: current character name
-        :param context: context of conversation, example: "Conversation between Bot and You"
-        :param greeting: just greeting message from bot
-        :return: None
+        """Init User class with default attribute
+
+        Args:
+          name1: username
+          name2: current character name
+          context: context of conversation, example: "Conversation between Bot and You"
+          greeting: just greeting message from bot
         """
         self.char_file: str = char_file
         self.name1: str = name1
@@ -56,20 +56,30 @@ class TelegramBotUser:
         self.greeting: str = greeting
 
     def truncate(self):
-        #  Converts all data to json string
+        """Truncate user history (minus one answer and user input)
+
+        Returns:
+            user_in: truncated user input string
+            msg_id: truncated answer message id (to be deleted in chat)
+        """
         msg_id = self.msg_id.pop()
         user_in = self.user_in.pop()
         self.history = self.history[:-2]
         return user_in, msg_id
 
-    def truncate_history(self):
-        #  Converts all data to json string
+    def truncate_only_history(self):
+        """Truncate user history (but not message list, used for message regenerating)
+
+        Returns:
+            truncated user input string
+        """
         user_in = self.user_in.pop()
         self.history = self.history[:-2]
         return user_in
 
-    def clear(self):
-        #  clear all data except char_file
+    def reset(self):
+        """Clear bot history and reset to default everything but language, silero and chat_file.
+        """
         self.name1 = "You"
         self.name2 = "Bot"
         self.context = ""
@@ -81,7 +91,11 @@ class TelegramBotUser:
         self.greeting = "Hello."
 
     def to_json(self):
-        #  Converts all data to json string
+        """Convert user data to json string.
+
+        Returns:
+            user data as json string
+        """
         return json.dumps({
             "char_file": self.char_file,
             "name1": self.name1,
@@ -98,9 +112,16 @@ class TelegramBotUser:
             "greeting": self.greeting,
         })
 
-    def from_json(self, s: str):
-        #  Converts json string to internal values
-        data = json.loads(s)
+    def from_json(self, json_data: str):
+        """Convert json string data to internal variables of User class
+
+        Args:
+            json_data: user json data string
+
+        Returns:
+            True if success, otherwise False
+        """
+        data = json.loads(json_data)
         try:
             self.char_file = data["char_file"] if "char_file" in data else ""
             self.name1 = data["name1"] if "name1" in data else "You"
@@ -121,7 +142,18 @@ class TelegramBotUser:
             return False
 
     def load_character_file(self, characters_dir_path: str, char_file: str):
-        self.clear()
+        """Load char file.
+        First, reset all internal user data to default
+        Second, read char file as yaml or json and converts to internal User data
+
+        Args:
+            characters_dir_path: path to character dir
+            char_file: name of char file
+
+        Returns:
+            True if success, otherwise False
+        """
+        self.reset()
         # Copy default user data. If reading will fail - return default user data
         try:
             # Try to read char file.
@@ -171,7 +203,7 @@ class TelegramBotUser:
             self.user_in = []
             self.history = []
         except Exception as exception:
-            print("load_character_file", exception)
+            print("load_char_json_file", exception)
         finally:
             return self
 
@@ -183,17 +215,35 @@ class TelegramBotUser:
         return s
 
     def find_and_load_user_char_history(self, chat_id, history_dir_path: str):
+        """Find and load user chat history. History files searched by file name temlate:
+            chat_id + char_file + .json (new template verions)
+            chat_id + name2 + .json (old template verions)
+
+        Args:
+            chat_id: user id
+            history_dir_path: path to history dir
+
+        Returns:
+            True user history found and loaded, otherwise False
+        """
         chat_id = str(chat_id)
         user_char_history_path = f'{history_dir_path}/{str(chat_id)}{self.char_file}.json'
         user_char_history_old_path = f'{history_dir_path}/{str(chat_id)}{self.name2}.json'
         if exists(user_char_history_path):
-            self.load_user_history(user_char_history_path)
+            return self.load_user_history(user_char_history_path)
         elif exists(user_char_history_old_path):
-            char_file = self.char_file
-            self.load_user_history(user_char_history_old_path)
-            self.char_file = char_file
+            return self.load_user_history(user_char_history_old_path)
+        return False
 
     def load_user_history(self, file_path):
+        """load history file data to User data
+
+        Args:
+            file_path: path to history file
+
+        Returns:
+            True user history loaded, otherwise False
+        """
         try:
             if exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as user_file:
@@ -201,15 +251,20 @@ class TelegramBotUser:
                 self.from_json(data)
                 if self.char_file == "":
                     self.char_file = self.name2
+            return True
         except Exception as exception:
             print(f"load_user_history: {exception}")
+            return False
 
     def save_user_history(self, chat_id, history_dir_path="history"):
-        """
-        Save two history file -user+char and default user history files and return their path
-        :param chat_id: user chat_id
-        :param history_dir_path: history dir path
-        :return: user_char_file_path, default_user_file_path
+        """ Save two history file "user + char + .json" and default user history files and return their path
+
+        Args:
+          chat_id: user chat_id
+          history_dir_path: history dir path
+
+        Returns:
+          user_char_file_path, default_user_file_path
         """
         if self.char_file == "":
             self.char_file = self.name2
