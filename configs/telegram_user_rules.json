@@ -1,0 +1,23 @@
+{
+    "Next": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": false},
+    "Continue": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "Delete_one_word": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "Regen": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": true},
+    "Cutoff": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "options": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Chars_list": {"admin": true,"chat": true,"chat-restricted": false,"notebook": true,"persona": false,"query": true},
+    "Chars_load": {"admin": true,"chat": true,"chat-restricted": false,"notebook": true,"persona": false,"query": true},
+    "Reset": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "Download": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Context": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Language_list": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Language_load": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Voice_list": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Voice_load": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "Presets_list": {"admin": true,"chat": false,"chat-restricted": false,"notebook": false,"persona": false,"query": false},
+    "Preset_load": {"admin": true,"chat": false,"chat-restricted": false,"notebook": false,"persona": false,"query": false},
+    "Model_list": {"admin": true,"chat": false,"chat-restricted": false,"notebook": false,"persona": false,"query": false},
+    "Model_load": {"admin": true,"chat": false,"chat-restricted": false,"notebook": false,"persona": false,"query": false},
+    "Delete": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
+    "message": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true}
+}
