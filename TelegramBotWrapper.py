@@ -739,8 +739,8 @@ class TelegramBotWrapper:
             if system_message:
                 context.bot.send_message(text=answer, chat_id=chat_id)
             elif user_text[0] in self.sd_api_prefixes:
-                self.send_sd_image(upd, context, answer, user_text)
                 user.truncate_only_history()
+                self.send_sd_image(upd, context, answer, user_text)
             else:
                 message = self.send(
                     text=answer, chat_id=chat_id, context=context)
