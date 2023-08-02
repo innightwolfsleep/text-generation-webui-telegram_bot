@@ -21,6 +21,7 @@ git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot
 HOW TO USE:
 1) add your bot token to "text-generation-webui\extensions\telegram_bot\telegram_token.txt" (ask https://t.me/BotFather how to get token)
 2) run server.py with "--extensions telegram_bot"
+3) (optional) if you are facing internet issue, change `proxy_url` at `telegram_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
 
 FEATURES:
 - chat and notebook modes

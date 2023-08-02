@@ -168,6 +168,7 @@ class TelegramBotWrapper:
         self.user_lang = user_lang
         self.stopping_strings = []
         self.eos_token = None
+        self.proxy_url = None
         # Read config_file if existed, overwrite bot config
         self.load_config_file(self.config_file_path)
         # Load user generator parameters
@@ -219,6 +220,7 @@ class TelegramBotWrapper:
                                                              self.translation_as_hidden_text)
                 self.stopping_strings = config.get("stopping_strings", self.stopping_strings)
                 self.eos_token = config.get("eos_token", self.eos_token)
+                self.proxy_url = config.get("proxy_url", self.proxy_url)
         else:
             print("Cant find config_file " + config_file_path)
 
@@ -235,7 +237,14 @@ class TelegramBotWrapper:
             token_file_name = token_file_name or self.token_file_path
             with open(token_file_name, "r", encoding="utf-8") as f:
                 bot_token = f.read().strip()
-        self.updater = Updater(token=bot_token, use_context=True)
+        
+        # if using socks proxy, may require additional package : python-telegram-bot[socks] 
+        # run this command to install "pip install "python-telegram-bot[socks]""        
+        request_kwargs = {
+            'proxy_url': self.proxy_url, 
+        }
+        
+        self.updater = Updater(token=bot_token, use_context=True, request_kwargs=request_kwargs)
         self.updater.dispatcher.add_handler(
             CommandHandler("start", self.cb_start_command)),
         self.updater.dispatcher.add_handler(
