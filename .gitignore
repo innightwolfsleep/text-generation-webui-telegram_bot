@@ -1,3 +1,4 @@
-﻿/.vscode/**
+﻿/__pycache__/**
+/.vscode/**
 *.json
 telegram_token.txt
