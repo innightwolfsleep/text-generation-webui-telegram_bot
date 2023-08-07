@@ -21,5 +21,7 @@
     "chat_prompt_size": 1024,
     "chat_generation_attempts": 1,
     "stop_at_newline": false,
-    "skip_special_tokens": true
+    "skip_special_tokens": true,
+    "guidance_scale": 1,
+    "negative_prompt": "",
 }
