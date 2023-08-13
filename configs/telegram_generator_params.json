@@ -23,5 +23,6 @@
     "stop_at_newline": false,
     "skip_special_tokens": true,
     "guidance_scale": 1,
-    "negative_prompt": ""
+    "negative_prompt": "",
+	"auto_max_new_tokens": false
 }
