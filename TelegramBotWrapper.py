@@ -897,7 +897,7 @@ Language: {user.language}"""
             message_id=message.message_id,
             context=context,
             upd=upd)
-        self.users[chat_id].msg_id.append(message.message_id)
+        #self.users[chat_id].msg_id.append(message.message_id)
         user.save_user_history(chat_id, self.history_dir_path)
 
     def delete_word_button(self, upd: Update, context: CallbackContext):
