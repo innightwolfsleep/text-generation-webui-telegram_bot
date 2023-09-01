@@ -11,7 +11,8 @@ REQUIREMENTS:
 - deep-translator _(already in text-generation-webui requirements)_
 
 HOW TO INSTALL:
-0) run **cmd_windows.bat** or **cmd_linux.sh**
+
+0) run `cmd_windows.bat` or `cmd_linux.sh`
 
 1) clone this repo to "text-generation-webui\extensions"
 ```
