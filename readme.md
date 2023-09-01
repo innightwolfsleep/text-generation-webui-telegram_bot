@@ -15,7 +15,6 @@ HOW TO INSTALL:
 
 1) clone this repo to "text-generation-webui\extensions"
 ```
-cd text-generation-webui
 git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot text-generation-webui\extensions\telegram_bot
 ```
 2) install requirements
