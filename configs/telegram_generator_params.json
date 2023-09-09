@@ -24,5 +24,7 @@
     "skip_special_tokens": true,
     "guidance_scale": 1,
     "negative_prompt": "",
-	"auto_max_new_tokens": false
+    "auto_max_new_tokens": false,
+    "max_tokens_second": 0,
+    "repetition_penalty_range": 0
 }
