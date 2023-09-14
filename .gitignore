@@ -1,4 +1,11 @@
-﻿/__pycache__/**
-/.vscode/**
-*.json
-telegram_token.txt
+/configs/telegram_token.txt
+/configs/telegram_users.txt
+/configs/telegram_admins.txt
+models/*
+!models/place_models_here.txt
+characters/*
+!characters/Example.yaml
+!characters/Coder.json
+history/*
+history/telegram_history_here.txt
+.env
