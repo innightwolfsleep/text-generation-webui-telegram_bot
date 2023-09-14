@@ -3,7 +3,7 @@
 
 An extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui).
 
-In addition, can be runed as standalone app.
+In addition, can work as standalone app.
 
 
 ---------------
