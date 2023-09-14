@@ -1,0 +1,23 @@
+{
+	"bot_mode": "admin",
+	"generator_script": "generator_text_generator_webui",
+	"model_path": "unused",
+	"characters_dir_path": "characters",
+	"default_char": "Example.yaml",
+	"presets_dir_path": "presets",
+	"default_preset": "LLaMA-ggml-Precise.txt",
+	"model_lang": "en",
+	"user_lang": "en",
+	"history_dir_path": "extensions\\telegram_bot\\history",
+	"token_file_path": "extensions\\telegram_bot\\configs\\telegram_token.txt",
+	"admins_file_path": "extensions\\telegram_bot\\configs\\telegram_admins.txt",
+	"users_file_path": "extensions\\telegram_bot\\configs\\users_file_path.txt",
+	"generator_params_file_path": "extensions\\telegram_bot\\configs\\telegram_generator_params.json",
+	"user_rules_file_path": "extensions\\telegram_bot\\configs\\telegram_user_rules.json",
+	"telegram_sd_config": "extensions\\telegram_bot\\configs\\telegram_sd_config.json",
+	"stopping_strings": ["<END>", "<START>", "end{code}"],
+	"eos_token": "None",
+	"translation_as_hidden_text": "on",
+	"sd_api_url": "http://127.0.0.1:7860",
+	"proxy_url": ""
+}
