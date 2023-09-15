@@ -158,6 +158,7 @@ class TelegramBotWrapper:
         self.proxy_url = ""
         # Set bot mode
         self.bot_mode = "admin"
+        self.user_name_template = ""  # template for username. "" - default (You), FIRSTNAME, LASTNAME, USERNAME, ID
         self.generator_script = ""  # mode loaded from config
         self.model_path = ""
         # Set default character json file
@@ -206,6 +207,7 @@ class TelegramBotWrapper:
             with open(config_file_path, "r") as config_file_path:
                 config = json.loads(config_file_path.read())
                 self.bot_mode = config.get("bot_mode", self.bot_mode)
+                self.user_name_template = config.get("user_name_template", self.user_name_template)
                 self.generator_script = config.get("generator_script", self.generator_script)
                 self.model_path = config.get("model_path", self.model_path)
                 self.default_preset = config.get("default_preset", self.default_preset)
@@ -291,6 +293,7 @@ class TelegramBotWrapper:
     # Additional telegram actions
     def thread_welcome_message(self, upd: Update, context: CallbackContext):
         chat_id = upd.effective_chat.id
+        name = upd.message.chat.id
         if not self.check_user_permission(chat_id):
             return False
         self.init_check_user(chat_id)
@@ -434,7 +437,7 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # answer generator
-    def generate_answer(self, user_in, chat_id) -> Tuple[str, str]:
+    def generate_answer(self, user_in: str, chat_id: int, user_name="") -> Tuple[str, str]:
         answer = self.GENERATOR_FAIL
         user = self.users[chat_id]
         return_msg_action = self.MSG_SEND
@@ -516,7 +519,8 @@ class TelegramBotWrapper:
                 # add "name1&2:" to user and bot message (generation from name2
                 # point of view);
                 user.user_in.append(user_in)
-                user.history.append(user.name1 + ": " + user_in)
+                user_name = user.name1 if user_name == "" else user_name
+                user.history.append(user_name + ": " + user_in)
                 user.history.append(user.name2 + ":")
 
             # Set eos_token and stopping_strings.
@@ -765,7 +769,11 @@ class TelegramBotWrapper:
             # Generate answer and replace "typing" message with it
             if user_text not in self.sd_api_prefixes:
                 user_text = self.prepare_text(user_text, user, "to_model")
-            answer, system_message = self.generate_answer(user_in=user_text, chat_id=chat_id)
+            user_name = self.user_name_template.replace("FIRSTNAME", upd.message.from_user.first_name or "")
+            user_name = user_name.replace("LASTNAME", upd.message.from_user.last_name or "")
+            user_name = user_name.replace("USERNAME", upd.message.from_user.username or "")
+            user_name = user_name.replace("ID", str(upd.message.from_user.id) or "")
+            answer, system_message = self.generate_answer(user_in=user_text, chat_id=chat_id, user_name=user_name)
             if system_message == self.MSG_SYSTEM:
                 context.bot.send_message(text=answer, chat_id=chat_id)
             elif system_message == self.MSG_SD_API:
@@ -791,11 +799,10 @@ class TelegramBotWrapper:
     # =============================================================================
     # button
     def thread_push_button(self, upd: Update, context: CallbackContext):
-        query = upd.callback_query
-        query.answer()
-        chat_id = query.message.chat.id
-        msg_id = query.message.message_id
-        option = query.data
+        upd.callback_query.answer()
+        chat_id = upd.callback_query.message.chat.id
+        msg_id = upd.callback_query.message.message_id
+        option = upd.callback_query.data
         if not self.check_user_permission(chat_id):
             return False
         # Send "typing" message

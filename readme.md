@@ -1,26 +1,12 @@
 
 ![Image1](https://github.com/innightwolfsleep/storage/raw/main/textgen_telegram.PNG)
 
-An extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui).
+WrAPPer for llama.cpp or transformers. 
+&
+An EXTension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui).
 
-In addition, can work as standalone app.
+Provide telegram chat with various additional functional like buttons, prefixes, voice/image generation.
 
-
----------------
-HOW TO INSTALL (**extension mode**):
-
-1) obviously, install  [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) first, add model, set all options you need
-2) run `cmd_windows.bat` or `cmd_linux.sh` to enable venv
-3) clone this repo to "text-generation-webui\extensions"  
-`git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot text-generation-webui\extensions\telegram_bot`
-4) install requirements  
-`pip install -r text-generation-webui\extensions\telegram_bot\ext_requirements_ext.txt`
-
-HOW TO USE (**extension mode**):
-1) get bot token from https://t.me/BotFather 
-2) add your bot token in `text-generation-webui\extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
-3) run server.py with `--extensions telegram_bot`
-4) (optional) if you are facing internet issue, change `proxy_url` at `ext_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
 ---------------
 HOW TO INSTALL (**standalone app**):
 1) clone this repo  
@@ -32,9 +18,23 @@ HOW TO RUN (**standalone app**):
 1) get bot token from https://t.me/BotFather 
 2) add bot token to environment (look `.env.example`) OR file `configs/telegram_token.txt`
 3) move your model file to `models/`
-4) set **model_path** to your model in `configs/app_config.json` 
+4) set **model_path** to your model in `configs/app_config.json`
 5) start `run.cmd`(windows) or `run.sh`(linux)
-6) ---------------
+---------------
+HOW TO INSTALL (**extension mode**):
+1) obviously, install  [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) first, add model, set all options you need
+2) run `cmd_windows.bat` or `cmd_linux.sh` to enable venv
+3) clone this repo to "text-generation-webui\extensions"  
+`git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot text-generation-webui\extensions\telegram_bot`
+4) install requirements  
+`pip install -r text-generation-webui\extensions\telegram_bot\ext_requirements_ext.txt`
+
+HOW TO USE (**extension mode**):
+1) get bot token from https://t.me/BotFather 
+2) add your bot token in `text-generation-webui\extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
+3) run server.py with `--extensions telegram_bot`
+---------------
+(optional) if you are facing internet issue, change `proxy_url` at `app_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
 
 FEATURES:
 - chat and notebook modes
@@ -56,6 +56,7 @@ FEATURES:
 - translation_as_hidden_text option in .cfg - if you want to learn english with bot)))
 - telegram_users.txt - list of permitted users (if empty - permit for all)
 - antiflood - one message per 15 sec from one user
+- improved group chatting mode
 
 
 CONFIGURATION:
@@ -73,6 +74,16 @@ x_config.json
             - persona - same as chat-restricted, but reset/regenerate/delete message are unavailable too. 
             - notebook - notebook-like mode. Prefixes wont added automaticaly, only "\n" separate user and bot messages. Restriction like chat mode.
             - query - same as notebook, but without history. Each question for bot is like new convrsation withot influence of previous questions
+    user_name_template=
+        user name template, useful for group chat.
+        if empty bot always get default name of user - You. By default even in group chats bot perceive all users as single entity "You"
+        but it is possible force bot to perceive telegram users names with templates: 
+            FIRSTNAME - user first name (Jon)
+            LASTNAME - user last name (Dow)
+            USERNAME - user nickname (superguy)
+            ID - user Id (999999999)
+        so, user_name_template="USERNAME FIRSTNAME ID" translatede to user name "superguy Jon 999999999"
+        but if you planed to use template and group chat - you shold add "\n" sign to stopping_strings to prevent bot impersonating!!!
     generator_script=GeneratorLlamaCpp
         name of generator script (generators folder):
             - generator_llama_cpp - based on llama-cpp-python, recommended
@@ -109,6 +120,7 @@ x_config.json
     telegram_sd_config=configs\\telegram_sd_config.json
         stable diffusion api config
     stopping_strings=<END>,<START>,end{code}
+        generating settings - which text pattern stopping text generating? Add "\n" if bot sent too much text.
     eos_token=None
         generating settings
     translation_as_hidden_text=on
