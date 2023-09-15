@@ -20,7 +20,7 @@ HOW TO USE (**extension mode**):
 1) get bot token from https://t.me/BotFather 
 2) add your bot token in `text-generation-webui\extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
 3) run server.py with `--extensions telegram_bot`
-4) (optional) if you are facing internet issue, change `proxy_url` at `extension_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
+4) (optional) if you are facing internet issue, change `proxy_url` at `ext_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
 ---------------
 HOW TO INSTALL (**standalone app**):
 1) clone this repo  
@@ -44,7 +44,7 @@ FEATURES:
 - buttons: continue previous message, regenerate last message, remove last messages from history, reset history button, new char loading menu
 - you can load new characters from text-generation-webui\characters with button
 - you can load new model during conversation with button
-- chatting "+" or "#" prefix for impersonate: "#Hero sister" or "+Castle guard". Or even ask bot generate your own message "+You"
+- "+" or "#" user message prefix for impersonate: "#Chiharu sister" or "+Castle guard". Or even ask bot generate your own message "+You"
 - "-" or "!" prefix to replace last bot message
 - "++" prefix replace bot name during chat (switch conversation to another character)
 - "--" prefix replace you name during chat
@@ -60,8 +60,8 @@ FEATURES:
 
 CONFIGURATION:
 
-`run_config.json` - config for running as standalone app (`run.sh` or `run.cmd`)  
-`extension_config` - config for running as extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui)
+`app_config.json` - config for running as standalone app (`run.sh` or `run.cmd`)  
+`ext_config.json` - config for running as extension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui)
 
 ```
 x_config.json
@@ -82,50 +82,59 @@ x_config.json
             - generator_text_generator_webui_api - use oobabooga/text-generation-webui API extension
     model_path=models\llama-13b.ggml.q4_0.bin
         path to model .bin file
-	characters_dir_path=characters
-	default_char=Example.yaml
-		default cahracter and path to cahracters folder
-	presets_dir_path=presets
-	default_preset=Shortwave.yaml
-		default generation preset and path to preset folder
-	model_lang=en
-	user_lang=en
-		default model and user language. User language can be switched by users, individualy.
-	html_tag_open=<pre>
-	html_tag_close=</pre>
-		tags for bot answers in tg. By default - preformatted text (pre)
-	history_dir_path=history
-		directory for users history
-	token_file_path=configs\\telegram_token.txt
-		bot token. Ask https://t.me/BotFather
-	admins_file_path=configs\\telegram_admins.txt
-		users whos id's in admins_file switched to admin mode and can choose settings-for-all (generating settings and model)
-	users_file_path=configs\\telegram_users.txt
-		if just one id in users_file - bot will ignore all users except this id (id's). Even admin will be ignored
-	generator_params_file_path=configs\\telegram_generator_params.json
-	    default text generation params, overwrites by choosen preset 
-	user_rules_file_path=configs\\telegram_user_rules.json
-	    user rules matrix 
-	telegram_sd_config=configs\\telegram_sd_config.json
-	    stable diffusion api config
-	stopping_strings=<END>,<START>,end{code}
-	eos_token=None
-		generating settings
-	translation_as_hidden_text=on
-		if "on" and model/user lang not the same - translation will be writed under spoiler. If "off" - translation without spoiler, no original text in message.
+    characters_dir_path=characters
+    default_char=Example.yaml
+        default cahracter and path to cahracters folder
+    presets_dir_path=presets
+    default_preset=Shortwave.yaml
+        default generation preset and path to preset folder
+    model_lang=en
+    user_lang=en
+        default model and user language. User language can be switched by users, individualy.
+    html_tag_open=<pre>
+    html_tag_close=</pre>
+        tags for bot answers in tg. By default - preformatted text (pre)
+    history_dir_path=history
+        directory for users history
+    token_file_path=configs\\telegram_token.txt
+        bot token. Ask https://t.me/BotFather
+    admins_file_path=configs\\telegram_admins.txt
+        users whos id's in admins_file switched to admin mode and can choose settings-for-all (generating settings and model)
+    users_file_path=configs\\telegram_users.txt
+        if just one id in users_file - bot will ignore all users except this id (id's). Even admin will be ignored
+    generator_params_file_path=configs\\telegram_generator_params.json
+        default text generation params, overwrites by choosen preset 
+    user_rules_file_path=configs\\telegram_user_rules.json
+        user rules matrix 
+    telegram_sd_config=configs\\telegram_sd_config.json
+        stable diffusion api config
+    stopping_strings=<END>,<START>,end{code}
+    eos_token=None
+        generating settings
+    translation_as_hidden_text=on
+        if "on" and model/user lang not the same - translation will be writed under spoiler. If "off" - translation without spoiler, no original text in message.
     sd_api_url="http://127.0.0.1:7860"
-        stable diffusion api url, need to use "photo" prefixes
-	proxy_url
-	    to avoid provider blocking
+    stable diffusion api url, need to use "photo" prefixes
+    proxy_url
+        to avoid provider blocking
 
+
+telegram_generator_params.json
+    config for generator 
+
+telegram_sd_config.json
+    config for stable diffusion
 
 telegram_admins.txt
-	list of users id who forced to admin mode. 
+    list of users id who forced to admin mode. If telegram_users not empty - must be in telegram_users too!
 
 telegram_users.txt
-	list og users id (or groups id) who permitted interact with bot. If empty - everyone permitted
+    list og users id (or groups id) who permitted interact with bot. If empty - everyone permitted
 
 telegram_token.txt
-	telegram bot token
+    telegram bot token
+
+telegram_user_rules.json
+    buttons visibility config for various bot modes
 
 ```
