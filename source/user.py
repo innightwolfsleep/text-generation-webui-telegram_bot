@@ -75,9 +75,10 @@ class TelegramBotUser:
         Returns:
             truncated user input string
         """
-        user_in = self.user_in.pop()
+        last_user_message = self.history[-2]
+        self.user_in.pop()
         self.history = self.history[:-2]
-        return user_in
+        return last_user_message
 
     def reset(self):
         """Clear bot history and reset to default everything but language, silero and chat_file."""
