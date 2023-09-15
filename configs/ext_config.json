@@ -1,5 +1,6 @@
 {
 	"bot_mode": "admin",
+	"user_name_template": "",
 	"generator_script": "generator_text_generator_webui",
 	"model_path": "unused",
 	"characters_dir_path": "characters",

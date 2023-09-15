@@ -1,7 +1,8 @@
 {
 	"bot_mode": "admin",
+	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models\\puma-3b.ggmlv3.q4_0.gguf",
+	"model_path": "models\\mythomax-l2-kimiko-v2-13b.ggmlv3.Q3_K_M.gguf",
 	"characters_dir_path": "characters",
 	"default_char": "Example.yaml",
 	"presets_dir_path": "presets",
