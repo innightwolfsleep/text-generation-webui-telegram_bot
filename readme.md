@@ -27,7 +27,7 @@ HOW TO INSTALL (**extension mode**):
 3) clone this repo to "text-generation-webui\extensions"  
 `git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot text-generation-webui\extensions\telegram_bot`
 4) install requirements  
-`pip install -r text-generation-webui\extensions\telegram_bot\ext_requirements_ext.txt`
+`pip install -r text-generation-webui\extensions\telegram_bot\requirements_ext.txt`
 
 HOW TO USE (**extension mode**):
 1) get bot token from https://t.me/BotFather 
