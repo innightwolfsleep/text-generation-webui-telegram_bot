@@ -27,5 +27,13 @@
     "negative_prompt": "",
     "auto_max_new_tokens": false,
     "max_tokens_second": 0,
-    "repetition_penalty_range": 0
+    "repetition_penalty_range": 0,
+    "epsilon_cutoff": 0,
+    "eta_cutoff": 0,
+    "top_a": 0,
+    "tfs": 1,
+    "mirostat_mode": 0,
+    "mirostat_tau": 5,
+    "mirostat_eta": 0.1,
+    "custom_token_bans": ""
 }
