@@ -1,8 +1,57 @@
 import json
-from os.path import exists
-
 import yaml
+from os.path import exists
 from pathlib import Path
+from dataclasses import dataclass, field
+
+@dataclass
+class TelegramBotHistory:
+    action: str = field(default="Msg")
+    name1: str = field(default="You")
+    name2: str = field(default="Bot")
+    user_in: str = field(default="")
+    in_text: str = field(default="")
+    out_text: str = field(default="")
+    in_msg: int = field(default=0)
+    out_msg: int = field(default=1)
+
+    def to_json(self):
+        """Convert user data to json string.
+
+        Returns:
+            user data as json string
+        """
+        return json.dumps(
+            {
+                "action": self.action,
+                "name1": self.name1,
+                "name2": self.name2,
+                "user_in": self.user_in,
+                "in_txt": self.in_text,
+                "out_txt": self.out_text,
+                "in_msg": self.in_msg,
+                "out_msg": self.out_msg,
+            }
+        )
+
+    def from_json(self, json_data: str):
+        """Convert json string data to internal variables
+
+        Args:
+            json_data: user json data string
+
+        Returns:
+            True if success, otherwise False
+        """
+        data = json.loads(json_data)
+        try:
+            self.name1 = data["name1"] if "name1" in data else "You"
+            self.name2 = data["name2"] if "name2" in data else "Bot"
+            self.user_in = data["user_in"]
+            return True
+        except Exception as exception:
+            print("from_json", exception)
+            return False
 
 
 class TelegramBotUser:
@@ -23,17 +72,20 @@ class TelegramBotUser:
     }
 
     def __init__(
-        self,
-        char_file="",
-        name1="You",
-        name2="Bot",
-        context="",
-        example="",
-        language="en",
-        silero_speaker="None",
-        silero_model_id="None",
-        turn_template="",
-        greeting="Hello.",
+            self,
+            char_file="",
+            name1="You",
+            name2="Bot",
+            tg_username="",
+            tg_firstname="",
+            tg_lastname="",
+            context="",
+            example="",
+            language="en",
+            silero_speaker="None",
+            silero_model_id="None",
+            turn_template="",
+            greeting="Hello.",
     ):
         """Init User class with default attribute
 
@@ -46,6 +98,9 @@ class TelegramBotUser:
         self.char_file: str = char_file
         self.name1: str = name1
         self.name2: str = name2
+        self.tg_username = tg_username,
+        self.tg_firstname = tg_firstname,
+        self.tg_lastname = tg_lastname,
         self.context: str = context
         self.example: str = example
         self.language: str = language
@@ -68,16 +123,6 @@ class TelegramBotUser:
         user_in = self.user_in.pop()
         self.history = self.history[:-2]
         return user_in, msg_id
-
-    def truncate_only_history(self):
-        """Truncate user history (but not message list, used for message regenerating)
-
-        Returns:
-            truncated user input string
-        """
-        user_in = self.user_in.pop()
-        self.history = self.history[:-2]
-        return user_in
 
     def reset(self):
         """Clear bot history and reset to default everything but language, silero and chat_file."""
