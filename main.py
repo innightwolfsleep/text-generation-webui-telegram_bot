@@ -10,11 +10,10 @@ from threading import Thread, Lock, Event
 from typing import Dict, Tuple
 
 import backoff
-import urllib3
 from deep_translator import GoogleTranslator as Translator
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaAudio
 from telegram.constants import CHATACTION_TYPING
-from telegram.error import BadRequest
+from telegram.error import BadRequest, NetworkError
 from telegram.ext import (
     CallbackContext,
     Filters,
@@ -627,7 +626,7 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
+        NetworkError,
         max_time=60,
     )
     def send_sd_image(self, upd: Update, context: CallbackContext, answer, user_text):
@@ -645,7 +644,7 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
+        NetworkError,
         max_time=60,
     )
     def clean_last_message_markup(self, context: CallbackContext, chat_id: int):
@@ -658,7 +657,7 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
+        NetworkError,
         max_time=60,
     )
     def send_message(self, context: CallbackContext, chat_id: int, text: str):
@@ -700,7 +699,7 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
+        NetworkError,
         max_time=60,
     )
     def edit_message(
@@ -777,7 +776,8 @@ class TelegramBotWrapper:
             if system_message == self.MSG_SYSTEM:
                 context.bot.send_message(text=answer, chat_id=chat_id)
             elif system_message == self.MSG_SD_API:
-                user.truncate_only_history()
+                user.user_in = user.user_in[:-1]
+                user.history = user.history[:-2]
                 self.send_sd_image(upd, context, answer, user_text)
             else:
                 if system_message == self.MSG_DEL_LAST:
@@ -958,7 +958,8 @@ Language: {user.language}"""
         user = self.users[chat_id]
         # add pretty "retyping" to message text
         # remove last bot answer, read and remove last user reply
-        user_in = user.truncate_only_history()
+        user_in, _ = user.truncate()
+        user.msg_id.append(msg.message_id)
         # get answer and replace message text!
         answer, _ = self.generate_answer(user_in=user_in, chat_id=chat_id)
         self.edit_message(

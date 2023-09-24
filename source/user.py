@@ -69,16 +69,6 @@ class TelegramBotUser:
         self.history = self.history[:-2]
         return user_in, msg_id
 
-    def truncate_only_history(self):
-        """Truncate user history (but not message list, used for message regenerating)
-
-        Returns:
-            truncated user input string
-        """
-        user_in = self.user_in.pop()
-        self.history = self.history[:-2]
-        return user_in
-
     def reset(self):
         """Clear bot history and reset to default everything but language, silero and chat_file."""
         self.name1 = "You"
