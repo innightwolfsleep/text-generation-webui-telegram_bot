@@ -631,16 +631,20 @@ class TelegramBotWrapper:
     )
     def send_sd_image(self, upd: Update, context: CallbackContext, answer, user_text):
         chat_id = upd.message.chat.id
-        file_list = self.SdApi.txt_to_image(answer)
-        answer = answer.replace(self.sd_api_prompt_of.replace("OBJECT", user_text[1:].strip()), "")
-        for char in ["[", "]", "{", "}", "(", ")", "*", '"', "'"]:
-            answer = answer.replace(char, "")
-        if len(file_list) > 0:
-            for image_path in file_list:
-                if os.path.exists(image_path):
-                    with open(image_path, "rb") as image_file:
-                        context.bot.send_photo(caption=answer, chat_id=chat_id, photo=image_file)
-                    os.remove(image_path)
+        try:
+            file_list = self.SdApi.txt_to_image(answer)
+            answer = answer.replace(self.sd_api_prompt_of.replace("OBJECT", user_text[1:].strip()), "")
+            for char in ["[", "]", "{", "}", "(", ")", "*", '"', "'"]:
+                answer = answer.replace(char, "")
+            if len(file_list) > 0:
+                for image_path in file_list:
+                    if os.path.exists(image_path):
+                        with open(image_path, "rb") as image_file:
+                            context.bot.send_photo(caption=answer, chat_id=chat_id, photo=image_file)
+                        os.remove(image_path)
+        except Exception as e:
+            logging.error("send_sd_image: " + str(e))
+            context.bot.send_message(text=answer, chat_id=chat_id)
 
     @backoff.on_exception(
         backoff.expo,
