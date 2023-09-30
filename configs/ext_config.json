@@ -12,7 +12,7 @@
 	"history_dir_path": "extensions\\telegram_bot\\history",
 	"token_file_path": "extensions\\telegram_bot\\configs\\telegram_token.txt",
 	"admins_file_path": "extensions\\telegram_bot\\configs\\telegram_admins.txt",
-	"users_file_path": "extensions\\telegram_bot\\configs\\users_file_path.txt",
+	"users_file_path": "extensions\\telegram_bot\\configs\\telegram_users.txt",
 	"generator_params_file_path": "extensions\\telegram_bot\\configs\\telegram_generator_params.json",
 	"user_rules_file_path": "extensions\\telegram_bot\\configs\\telegram_user_rules.json",
 	"sd_config_file_path": "extensions\\telegram_bot\\configs\\telegram_sd_config.json",
