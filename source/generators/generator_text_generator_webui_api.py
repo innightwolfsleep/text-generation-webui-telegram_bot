@@ -1,10 +1,15 @@
 import json
 import requests
 
+try:
+    from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
+except ImportError:
+    from source.generators.abstract_generator import AbstractGenerator
 
-class Generator:
+
+class Generator(AbstractGenerator):
     model_change_allowed = False  # if model changing allowed without stopping.
-    preset_change_allowed = False  # if preset changing allowed.
+    preset_change_allowed = False  # if preset_file changing allowed.
 
     def __init__(
         self,

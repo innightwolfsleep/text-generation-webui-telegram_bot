@@ -1,18 +1,22 @@
 from llama_cpp import Llama
 import os
 
+try:
+    from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
+except ImportError:
+    from source.generators.abstract_generator import AbstractGenerator
 
-class Generator:
+
+class Generator(AbstractGenerator):
     #  Place where path to LLM file stored
     llm: Llama = None
     model_change_allowed = False  # if model changing allowed without stopping.
-    preset_change_allowed = True  # if preset changing allowed.
+    preset_change_allowed = True  # if preset_file changing allowed.
 
     def __init__(self, model_path: str, n_ctx=4096, seed=0, n_gpu_layers=0):
         self.n_ctx = n_ctx
         self.seed = seed
         self.n_gpu_layers = n_gpu_layers
-        print(n_gpu_layers)
         self.llm = Llama(model_path=model_path, n_ctx=n_ctx, seed=seed, n_gpu_layers=n_gpu_layers)
 
     def get_answer(
