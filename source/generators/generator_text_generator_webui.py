@@ -6,10 +6,15 @@ from modules.text_generation import generate_reply
 from modules.text_generation import encode
 from modules import shared
 
+try:
+    from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
+except ImportError:
+    from source.generators.abstract_generator import AbstractGenerator
 
-class Generator:
+
+class Generator(AbstractGenerator):
     model_change_allowed = False  # if model changing allowed without stopping.
-    preset_change_allowed = True  # if preset changing allowed.
+    preset_change_allowed = True  # if preset_file changing allowed.
 
     def __init__(self, model_path="", n_ctx=2048, n_gpu_layers=0):
         pass
@@ -71,16 +76,13 @@ class Generator:
         # make adds
         return answer
 
-    @staticmethod
-    def tokens_count(text: str):
+    def tokens_count(self, text: str):
         return len(encode(text)[0])
 
-    @staticmethod
-    def get_model_list():
+    def get_model_list(self):
         return get_available_models()
 
-    @staticmethod
-    def load_model(model_file: str):
+    def load_model(self, model_file: str):
         server.unload_model()
         server.model_name = model_file
         if model_file != "":

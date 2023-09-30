@@ -6,6 +6,11 @@ from langchain import PromptTemplate, LLMChain
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
+try:
+    from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
+except ImportError:
+    from source.generators.abstract_generator import AbstractGenerator
+
 #  Place where path to LLM file stored
 llm = None
 
@@ -13,9 +18,9 @@ llm = None
 # Callbacks support token-wise streaming
 
 
-class Generator:
+class Generator(AbstractGenerator):
     model_change_allowed = False  # if model changing allowed without stopping.
-    preset_change_allowed = True  # if preset changing allowed.
+    preset_change_allowed = True  # if preset_file changing allowed.
 
     def __init__(self, model_path, n_ctx=2048, seed=0, n_gpu_layers=0):
         callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])

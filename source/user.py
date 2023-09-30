@@ -1,4 +1,5 @@
 import json
+import time
 from os.path import exists
 
 import yaml
@@ -9,18 +10,6 @@ class TelegramBotUser:
     """
     Class stored individual tg user info (history, message sequence, etc...) and provide some actions
     """
-
-    default_messages_template = {  # dict of messages templates for various situations. Use _VAR_ replacement
-        "mem_lost": "<b>MEMORY LOST!</b>\nSend /start or any text for new session.",  # refers to non-existing
-        "retyping": "<i>_NAME2_ retyping...</i>",  # added when "regenerate button" working
-        "typing": "<i>_NAME2_ typing...</i>",  # added when generating working
-        "char_loaded": "_NAME2_ LOADED!\n_GREETING_ ",  # When new char loaded
-        "preset_loaded": "LOADED PRESET: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
-        "model_loaded": "LOADED MODEL: _OPEN_TAG__CUSTOM_STRING__CLOSE_TAG_",  # When new char loaded
-        "mem_reset": "MEMORY RESET!\n_GREETING_",  # When history cleared
-        "hist_to_chat": "To load history - forward message to this chat",  # download history
-        "hist_loaded": "_NAME2_ LOADED!\n_GREETING_\n\nLAST MESSAGE:\n_CUSTOM_STRING_",  # load history
-    }
 
     def __init__(
         self,
@@ -52,12 +41,14 @@ class TelegramBotUser:
         self.silero_speaker: str = silero_speaker
         self.silero_model_id: str = silero_model_id
         self.turn_template: str = turn_template
-        self.user_in: list = []  # "user input history": [["Hi!","Who are you?"]], need for regenerate option
+        self.text_in: list = []  # "user input history": [["Hi!","Who are you?"]], need for regenerate option
+        self.name_in: list = []  # user_name history need to correct regenerate option
         self.history: list = []  # "history": [["Hi!", "Hi there!","Who are you?", "I am you assistant."]],
         self.msg_id: list = []  # "msg_id": [143, 144, 145, 146],
-        self.greeting: str = greeting
+        self.greeting: str = greeting  # "hello" or something
+        self.last_msg_timestamp: int = 0  # last message timestamp to avoid message flood.
 
-    def truncate(self):
+    def truncate_last_mesage(self):
         """Truncate user history (minus one answer and user input)
 
         Returns:
@@ -65,9 +56,26 @@ class TelegramBotUser:
             msg_id: truncated answer message id (to be deleted in chat)
         """
         msg_id = self.msg_id.pop()
-        user_in = self.user_in.pop()
+        user_in = self.text_in.pop()
+        self.name_in = self.name_in[:-1]
         self.history = self.history[:-2]
         return user_in, msg_id
+
+    def history_add(self, message="", answer=""):
+        self.history.append(message)
+        self.history.append(answer)
+
+    def change_last_message(self, text_in=None, name_in=None, history_message=None, history_answer=None, msg_id=None):
+        if text_in:
+            self.text_in[-1] = text_in
+        if name_in:
+            self.name_in[-1] = name_in
+        if history_message:
+            self.history[-2] = history_message
+        if history_answer:
+            self.history[-1] = history_answer
+        if msg_id:
+            self.msg_id[-1] = msg_id
 
     def reset(self):
         """Clear bot history and reset to default everything but language, silero and chat_file."""
@@ -76,7 +84,8 @@ class TelegramBotUser:
         self.context = ""
         self.example = ""
         self.turn_template = ""
-        self.user_in = []
+        self.text_in = []
+        self.name_in = []
         self.history = []
         self.msg_id = []
         self.greeting = "Hello."
@@ -98,7 +107,8 @@ class TelegramBotUser:
                 "silero_speaker": self.silero_speaker,
                 "silero_model_id": self.silero_model_id,
                 "turn_template": self.turn_template,
-                "user_in": self.user_in,
+                "text_in": self.text_in,
+                "name_in": self.name_in,
                 "history": self.history,
                 "msg_id": self.msg_id,
                 "greeting": self.greeting,
@@ -125,9 +135,10 @@ class TelegramBotUser:
             self.silero_speaker = data["silero_speaker"] if "silero_speaker" in data else "None"
             self.silero_model_id = data["silero_model_id"] if "silero_model_id" in data else "None"
             self.turn_template = data["turn_template"] if "turn_template" in data else ""
-            self.user_in = data["user_in"]
-            self.history = data["history"]
-            self.msg_id = data["msg_id"]
+            self.text_in = data["text_in"] if "text_in" in data else []
+            self.name_in = data["name_in"] if "name_in" in data else []
+            self.history = data["history"] if "history" in data else []
+            self.msg_id = data["msg_id"] if "msg_id" in data else []
             self.greeting = data["greeting"] if "greeting" in data else "Hello."
             return True
         except Exception as exception:
@@ -135,13 +146,13 @@ class TelegramBotUser:
             return False
 
     def load_character_file(self, characters_dir_path: str, char_file: str):
-        """Load char file.
+        """Load character_file file.
         First, reset all internal user data to default
-        Second, read char file as yaml or json and converts to internal User data
+        Second, read character_file file as yaml or json and converts to internal User data
 
         Args:
             characters_dir_path: path to character dir
-            char_file: name of char file
+            char_file: name of character_file file
 
         Returns:
             True if success, otherwise False
@@ -149,7 +160,7 @@ class TelegramBotUser:
         self.reset()
         # Copy default user data. If reading will fail - return default user data
         try:
-            # Try to read char file.
+            # Try to read character_file file.
             char_file_path = Path(f"{characters_dir_path}/{char_file}")
             with open(char_file_path, "r", encoding="utf-8") as user_file:
                 if char_file.split(".")[-1] == "json":
@@ -184,7 +195,7 @@ class TelegramBotUser:
             #  add dialogue examples
             if "example_dialogue" in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
-            #  add char greeting
+            #  add character_file greeting
             if "char_greeting" in data:
                 self.greeting = data["char_greeting"].strip()
             if "greeting" in data:
@@ -193,7 +204,8 @@ class TelegramBotUser:
             self.greeting = self.replace_context_templates(self.greeting)
             self.example = self.replace_context_templates(self.example)
             self.msg_id = []
-            self.user_in = []
+            self.text_in = []
+            self.name_in = []
             self.history = []
         except Exception as exception:
             print("load_char_json_file", exception)
@@ -250,7 +262,7 @@ class TelegramBotUser:
             return False
 
     def save_user_history(self, chat_id, history_dir_path="history"):
-        """Save two history file "user + char + .json" and default user history files and return their path
+        """Save two history file "user + character_file + .json" and default user history files and return their path
 
         Args:
           chat_id: user chat_id
@@ -271,3 +283,10 @@ class TelegramBotUser:
             user_file.write(user_data)
 
         return str(user_char_file_path), str(default_user_file_path)
+
+    def check_flooding(self, flood_avoid_delay):
+        if time.time() - flood_avoid_delay > self.last_msg_timestamp:
+            self.last_msg_timestamp = time.time()
+            return True
+        else:
+            return False
