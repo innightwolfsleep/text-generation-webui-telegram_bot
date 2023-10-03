@@ -31,7 +31,7 @@ HOW TO INSTALL (**extension mode**):
 
 HOW TO USE (**extension mode**):
 1) get bot token from https://t.me/BotFather 
-2) add your bot token in `text-generation-webui\extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
+2) add your bot token in `extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
 3) run server.py with `--extensions telegram_bot`
 ---------------
 (optional) if you are facing internet issue, change `proxy_url` at `app_config.json` into your own proxy. For example: `https://127.0.0.1:10808`
