@@ -1,6 +1,6 @@
 {
-    "stopping_strings": ["<END>", "<START>", "end{code}", "\n\n"],
-    "eos_token": "None",
+	"stopping_strings": ["<END>", "<START>", "end{code}", "\n"],
+	"eos_token": "None",
     "max_new_tokens": 256,
     "seed": -1.0,
     "temperature": 0.7,
@@ -8,7 +8,7 @@
     "top_k": 40,
     "typical_p": 1,
     "repetition_penalty": 1.18,
-    "n_gpu_layers": 20,
+    "n_gpu_layers": 27,
     "encoder_repetition_penalty": 1,
     "no_repeat_ngram_size": 0,
     "min_length": 0,
@@ -19,9 +19,9 @@
     "early_stopping": false,
     "add_bos_token": true,
     "ban_eos_token": false,
-    "truncation_length": 2048,
+    "truncation_length": 3060,
     "custom_stopping_strings": "",
-    "chat_prompt_size": 2048,
+    "chat_prompt_size": 3060,
     "chat_generation_attempts": 1,
     "stop_at_newline": false,
     "skip_special_tokens": true,
@@ -37,6 +37,5 @@
     "mirostat_mode": 0,
     "mirostat_tau": 5,
     "mirostat_eta": 0.1,
-    "grammar_string": "",
     "custom_token_bans": ""
 }

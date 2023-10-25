@@ -24,7 +24,7 @@ class Generator(AbstractGenerator):
         else:
             self.URI = f"http://localhost:5000/api/v1/chat"
 
-    def get_answer(
+    def generate_answer(
         self,
         prompt,
         generation_params,

@@ -4,6 +4,7 @@ import os
 import io
 import random
 import base64
+import logging
 from PIL import Image, PngImagePlugin
 
 
@@ -18,6 +19,7 @@ class SdApi:
                 self.payload = json.loads(sd_config_file.read())
         else:
             self.payload = {"prompt": "", "steps": 15}
+        logging.info(f"### SdApi INIT DONE ###")
 
     def txt_to_image(self, prompt: str):
         payload = self.payload.copy()

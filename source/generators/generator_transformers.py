@@ -19,7 +19,7 @@ class Generator(AbstractGenerator):
             device_map="auto",
         )
 
-    def get_answer(
+    def generate_answer(
         self,
         prompt,
         generation_params,
