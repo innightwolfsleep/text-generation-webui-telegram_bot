@@ -21,15 +21,15 @@ class AbstractGenerator(ABC):
         pass
 
     @abstractmethod
-    def get_answer(self,
-                   prompt: str,
-                   generation_params: Dict,
-                   eos_token: str,
-                   stopping_strings: List,
-                   default_answer: str,
-                   turn_template: str,
-                   **kwargs
-                   ) -> str:
+    def generate_answer(self,
+                        prompt: str,
+                        generation_params: Dict,
+                        eos_token: str,
+                        stopping_strings: List,
+                        default_answer: str,
+                        turn_template: str,
+                        **kwargs
+                        ) -> str:
         """
         Get llm answer
         """

@@ -4,10 +4,12 @@ from threading import Thread
 from main import TelegramBotWrapper
 from dotenv import load_dotenv
 
-config_file_path = "configs/app_config.json"
+default_config_file_path = "configs/app_config.json"
 
 
-def run_server(token):
+def run_server(token, config_file_path=""):
+    if not config_file_path:
+        config_file_path = default_config_file_path
     if not token:
         load_dotenv()
         token = os.environ.get("BOT_TOKEN", "")
@@ -18,13 +20,15 @@ def run_server(token):
     tg_server.run_telegram_bot(bot_token=str(token))
 
 
-def setup(token):
-    Thread(target=run_server, args=(token,)).start()
+def setup(token, config_file_path=""):
+    Thread(target=run_server, args=(token, config_file_path)).start()
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 2:
+        setup(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 1:
         setup(sys.argv[1])
     else:
         setup("")

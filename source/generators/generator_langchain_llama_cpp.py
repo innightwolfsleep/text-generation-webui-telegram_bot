@@ -31,7 +31,7 @@ class Generator(AbstractGenerator):
             verbose=True,
         )
 
-    def get_answer(
+    def generate_answer(
         self, prompt, generation_params, eos_token, stopping_strings, default_answer, turn_template="", **kwargs
     ):
         if "max_tokens" in generation_params:

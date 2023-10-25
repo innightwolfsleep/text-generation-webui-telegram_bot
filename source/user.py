@@ -1,12 +1,13 @@
 import json
 import time
 from os.path import exists
+from pathlib import Path
+from typing import List, Dict
 
 import yaml
-from pathlib import Path
 
 
-class TelegramBotUser:
+class User:
     """
     Class stored individual tg user info (history, message sequence, etc...) and provide some actions
     """
@@ -14,6 +15,7 @@ class TelegramBotUser:
     def __init__(
         self,
         char_file="",
+        user_id=0,
         name1="You",
         name2="Bot",
         context="",
@@ -33,6 +35,7 @@ class TelegramBotUser:
           greeting: just greeting message from bot
         """
         self.char_file: str = char_file
+        self.user_id: int = user_id
         self.name1: str = name1
         self.name2: str = name2
         self.context: str = context
@@ -41,14 +44,17 @@ class TelegramBotUser:
         self.silero_speaker: str = silero_speaker
         self.silero_model_id: str = silero_model_id
         self.turn_template: str = turn_template
-        self.text_in: list = []  # "user input history": [["Hi!","Who are you?"]], need for regenerate option
-        self.name_in: list = []  # user_name history need to correct regenerate option
-        self.history: list = []  # "history": [["Hi!", "Hi there!","Who are you?", "I am you assistant."]],
-        self.msg_id: list = []  # "msg_id": [143, 144, 145, 146],
+        self.text_in: List[str] = []  # "user input history": ["Hi!","Who are you?"], need for regenerate option
+        self.name_in: List[str] = []  # user_name history need to correct regenerate option
+        self.history: List[Dict[str]] = []  # "history": [["in": "query1", "out": "answer1"],["in": "query2",...
+        self.msg_id: List[int] = []  # "msg_id": [143, 144, 145, 146],
         self.greeting: str = greeting  # "hello" or something
         self.last_msg_timestamp: int = 0  # last message timestamp to avoid message flood.
 
-    def truncate_last_mesage(self):
+    def __or__(self, arg):
+        return arg
+
+    def truncate_last_message(self):
         """Truncate user history (minus one answer and user input)
 
         Returns:
@@ -57,13 +63,34 @@ class TelegramBotUser:
         """
         msg_id = self.msg_id.pop()
         user_in = self.text_in.pop()
-        self.name_in = self.name_in[:-1]
-        self.history = self.history[:-2]
+        self.name_in.pop()
+        self.history.pop()
         return user_in, msg_id
 
-    def history_add(self, message="", answer=""):
-        self.history.append(message)
-        self.history.append(answer)
+    def history_append(self, message="", answer=""):
+        self.history.append({"in": message, "out": answer})
+
+    def history_as_str(self) -> str:
+        history = ""
+        if len(self.history) == 0:
+            return history
+        for s in self.history:
+            if len(s["in"]) > 0:
+                history += s["in"]
+            if len(s["out"]) > 0:
+                history += s["out"]
+        return history
+
+    def history_as_list(self) -> list:
+        history_list = []
+        if len(self.history) == 0:
+            return history_list
+        for s in self.history:
+            if len(s["in"]) > 0:
+                history_list.append(s["in"])
+            if len(s["out"]) > 0:
+                history_list.append(s["out"])
+        return history_list
 
     def change_last_message(self, text_in=None, name_in=None, history_message=None, history_answer=None, msg_id=None):
         if text_in:
@@ -71,9 +98,9 @@ class TelegramBotUser:
         if name_in:
             self.name_in[-1] = name_in
         if history_message:
-            self.history[-2] = history_message
+            self.history[-1]["in"] = history_message
         if history_answer:
-            self.history[-1] = history_answer
+            self.history[-1]["out"] = history_answer
         if msg_id:
             self.msg_id[-1] = msg_id
 
@@ -99,6 +126,7 @@ class TelegramBotUser:
         return json.dumps(
             {
                 "char_file": self.char_file,
+                "user_id": self.user_id,
                 "name1": self.name1,
                 "name2": self.name2,
                 "context": self.context,
@@ -127,6 +155,7 @@ class TelegramBotUser:
         data = json.loads(json_data)
         try:
             self.char_file = data["char_file"] if "char_file" in data else ""
+            self.user_id = data["user_id"] if "user_id" in data else 0
             self.name1 = data["name1"] if "name1" in data else "You"
             self.name2 = data["name2"] if "name2" in data else "Bot"
             self.context = data["context"] if "context" in data else ""
@@ -188,21 +217,25 @@ class TelegramBotUser:
                 self.context += f"{data['context'].strip()}\n"
             if "world_scenario" in data:
                 self.context += f"Scenario: {data['world_scenario'].strip()}\n"
+            if "scenario" in data:
+                self.context += f"Scenario: {data['scenario'].strip()}\n"
             if "personality" in data:
-                self.context += f"Personality: {data['world_scenario'].strip()}\n"
+                self.context += f"Personality: {data['personality'].strip()}\n"
             if "description" in data:
-                self.context += f"Description: {data['world_scenario'].strip()}\n"
+                self.context += f"Description: {data['description'].strip()}\n"
             #  add dialogue examples
             if "example_dialogue" in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
             #  add character_file greeting
             if "char_greeting" in data:
                 self.greeting = data["char_greeting"].strip()
+            if "first_mes" in data:
+                self.greeting = data["first_mes"].strip()
             if "greeting" in data:
                 self.greeting = data["greeting"].strip()
-            self.context = self.replace_context_templates(self.context)
-            self.greeting = self.replace_context_templates(self.greeting)
-            self.example = self.replace_context_templates(self.example)
+            self.context = self._replace_context_templates(self.context)
+            self.greeting = self._replace_context_templates(self.greeting)
+            self.example = self._replace_context_templates(self.example)
             self.msg_id = []
             self.text_in = []
             self.name_in = []
@@ -212,9 +245,11 @@ class TelegramBotUser:
         finally:
             return self
 
-    def replace_context_templates(self, s: str) -> str:
+    def _replace_context_templates(self, s: str) -> str:
         s = s.replace("{{char}}", self.name2)
         s = s.replace("{{user}}", self.name1)
+        s = s.replace("{{Char}}", self.name2)
+        s = s.replace("{{User}}", self.name1)
         s = s.replace("<BOT>", self.name2)
         s = s.replace("<USER>", self.name1)
         return s
@@ -284,7 +319,15 @@ class TelegramBotUser:
 
         return str(user_char_file_path), str(default_user_file_path)
 
-    def check_flooding(self, flood_avoid_delay):
+    def check_flooding(self, flood_avoid_delay=5.0):
+        """just check if passed flood_avoid_delay between last timestamp and now and renew new timestamp if True
+
+        Args:
+          flood_avoid_delay:
+
+        Returns:
+          True or False
+        """
         if time.time() - flood_avoid_delay > self.last_msg_timestamp:
             self.last_msg_timestamp = time.time()
             return True

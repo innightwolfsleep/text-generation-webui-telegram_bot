@@ -5,8 +5,10 @@ omegaconf==2.3.0
 llama-cpp-python>=0.1.83
 num2words>=0.5.12
 transformers>=4.33.0
-Pillow>=10.0.0
 torch>=2.0.1
+torchvision
+tokenizers>=0.11.1,!=0.11.3,<0.14
+Pillow>=10.0.0
 backoff>=2.2.1
 langchain>=0.0.286
 requests>=2.31.0

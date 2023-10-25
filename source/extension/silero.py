@@ -1,12 +1,13 @@
 import re
 
+import logging
 import torch
 from num2words import num2words
 
 try:
-    from extensions.telegram_bot.source.user import TelegramBotUser as User
+    from extensions.telegram_bot.source.user import User as User
 except ImportError:
-    from source.user import TelegramBotUser as User
+    from source.user import User as User
 
 
 class Silero:
@@ -88,6 +89,7 @@ class Silero:
         self.sample_rate = 48000  # 8000, 24000, 48000
         self.silero_repo = "snakers4/silero-models"
         self.model = "silero_tts"
+        logging.info(f"### Silero INIT DONE ###")
 
     def get_audio(self, text: str, user_id: int, user: User):
         if user.silero_speaker == "None" or user.silero_model_id == "None":
