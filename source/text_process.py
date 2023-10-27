@@ -185,6 +185,8 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
                 conversation.append("".join([cfg.user_prompt_begin, i["in"], cfg.user_prompt_end]))
             if len(i["out"]) > 0:
                 conversation.append("".join([cfg.bot_prompt_begin, i["out"], cfg.bot_prompt_end]))
+        if len(cfg.bot_prompt_end):
+            conversation[-1] = conversation[-1][: -len(cfg.bot_prompt_end)]
 
         prompt = ""
         for s in reversed(conversation):
