@@ -14,7 +14,7 @@ try:
 except ImportError:
     import source.const as const
     from source.conf import cfg
-    from source.user import User as User, User
+    from source.user import User as User
 
 
 def prepare_text(original_text: str, user: User, direction="to_user"):
