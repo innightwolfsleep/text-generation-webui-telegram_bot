@@ -22,9 +22,18 @@ HOW TO RUN (**standalone app**):
 4) set **model_path** to your model in `configs\app_config.json`
 5) start `run.cmd`(windows) or `run.sh`(linux)
 
-(optional) to use exllama: `git clone https://github.com/turboderp/exllama llm_telegram_bot\source\generators\exllama`
+(optional) to use exllama: 
+```
+git clone https://github.com/turboderp/exllama llm_telegram_bot\source\generators\exllama
+pip install -r llm_telegram_bot\source\generators\exllama\requirements.txt
+```
 
-(optional) to use exllamav2: `git clone https://github.com/turboderp/exllamav2 llm_telegram_bot\source\generators\exllamav2`
+(optional) to use exllamav2: 
+```
+git clone https://github.com/turboderp/exllamav2 llm_telegram_bot\source\generators\exllamav2
+cd \llm_telegram_bot\source\generators\exllamav2
+python setup.py install --user
+```
 
 (optional) to use llama.cpp with GPU acceleration reinstall abetlen/llama-cpp-python by guide: [llama-cpp-python#installation-with-hardware-acceleration](https://github.com/abetlen/llama-cpp-python#installation-with-hardware-acceleration)
 
@@ -52,6 +61,7 @@ HOW TO INSTALL/USE (**google collab**):
 
 
 FEATURES:
+- chat templates (see [manuals/custom_prompt_templates.md])
 - chat and notebook modes
 - session for all users are separative (by chat_id)
 - local session history - conversation won't be lost if server restarts. Separated history between users and chars.
