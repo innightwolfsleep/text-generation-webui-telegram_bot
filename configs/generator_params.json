@@ -8,7 +8,7 @@
     "top_k": 40,
     "typical_p": 1,
     "repetition_penalty": 1.18,
-    "n_gpu_layers": 27,
+    "n_gpu_layers": 0,
     "encoder_repetition_penalty": 1,
     "no_repeat_ngram_size": 0,
     "min_length": 0,
