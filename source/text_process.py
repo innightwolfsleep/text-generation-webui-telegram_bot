@@ -190,7 +190,7 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
 
         prompt = ""
         for s in reversed(conversation):
-            s = "\n" + cfg.bot_prompt_begin + s + cfg.bot_prompt_end if len(s) > 0 else s
+            s = "\n" + s if len(s) > 0 else s
             s_len = get_tokens_count(s)
             if available_len >= s_len:
                 prompt = s + prompt
@@ -212,9 +212,14 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             default_answer=answer,
             turn_template=user.turn_template,
         )
-        # If generation result zero length - return  "Empty answer."
-        if cfg.bot_prompt_end != "" and answer.endswith(cfg.bot_prompt_end):
+        # Truncate prompt prefix/postfix
+        if len(cfg.bot_prompt_end) > 0 and answer.endswith(cfg.bot_prompt_end):
             answer = answer[: -len(cfg.bot_prompt_end)]
+        if len(cfg.bot_prompt_end) > 2 and answer.endswith(cfg.bot_prompt_end[:-1]):
+            answer = answer[: -len(cfg.bot_prompt_end[:-1])]
+        if len(cfg.bot_prompt_begin) > 0 and answer.startswith(cfg.bot_prompt_begin):
+            answer = answer[: -len(cfg.bot_prompt_begin)]
+        # If generation result zero length - return  "Empty answer."
         if len(answer) < 1:
             answer = const.GENERATOR_EMPTY_ANSWER
         # Final return
