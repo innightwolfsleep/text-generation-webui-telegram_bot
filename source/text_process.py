@@ -1,6 +1,7 @@
 import importlib
 import logging
 from threading import Lock
+from time import sleep
 from typing import Tuple, Dict
 from re import split, sub
 
@@ -30,6 +31,9 @@ debug_flag = True
 # ====================================================================================
 # TEXT LOGIC
 def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in="") -> Tuple[str, str]:
+    # additional delay option
+    if cfg.answer_delay > 0:
+        sleep(cfg.answer_delay)
     # if generation will fail, return "fail" answer
     answer = const.GENERATOR_FAIL
     # default result action - message

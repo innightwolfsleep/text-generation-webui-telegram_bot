@@ -366,10 +366,16 @@ class TelegramBotWrapper:
         chat_id = upd.message.chat.id
         utils.init_check_user(self.users, chat_id)
         user = self.users[chat_id]
+        # check permission and flooding
         if not utils.check_user_permission(chat_id):
             return False
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
+        if cfg.answer_only_mention:
+            if "".join(["@", context.bot.username]) in user_text:
+                user_text = user_text.replace("".join(["@", context.bot.username]), "")
+            else:
+                return
         # Send "typing" message
         typing = self.start_send_typing_status(context, chat_id)
         try:
@@ -394,8 +400,7 @@ class TelegramBotWrapper:
                 if system_message == const.MSG_DEL_LAST:
                     context.bot.deleteMessage(chat_id=chat_id, message_id=user.msg_id[-1])
                 message = self.send_message(text=answer, chat_id=chat_id, context=context)
-                # Clear buttons on last message (if they exist in current
-                # thread)
+                # Clear buttons on last message (if they exist in current thread)
                 self.clean_last_message_markup(context, chat_id)
                 # Add message ID to message history
                 user.msg_id.append(message.message_id)

@@ -15,7 +15,9 @@ logging.basicConfig(
 
 class Config(BaseModel):
     flood_avoid_delay: float = Field(default=10.0, description="Delay between new messages to avoid flooding (sec)")
+    answer_delay: float = Field(default=0.0, description="Additional delay between request and answer.")
     generation_timeout: int = Field(default=300, description="Timeout for text generator")
+    answer_only_mention: int = Field(default=True, description="If true - answer only for @bot mentions")
 
     # Single shot prefixes
     replace_prefixes: List = Field(default=["!", "-"], description="Prefix to replace last message")

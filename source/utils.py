@@ -89,6 +89,7 @@ def check_user_rule(chat_id, option):
     if os.path.exists(cfg.user_rules_file_path):
         with open(cfg.user_rules_file_path, "r") as user_rules_file:
             user_rules = json.loads(user_rules_file.read())
+    # if checked button with numeral postfix  - delete numerals
     option = sub(r"[0123456789-]", "", option)
     if option.endswith(const.BTN_OPTION):
         option = const.BTN_OPTION

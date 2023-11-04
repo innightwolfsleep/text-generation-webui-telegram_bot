@@ -2,7 +2,7 @@
 	"bot_mode": "admin",
 	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models\\airoboros-m-7b-3.1.2.Q5_K_M.gguf",
+	"model_path": "models\\thespis-mistral-7b-v0.5.Q5_K_M.gguf",
 	"context_prompt_begin": "",
 	"context_prompt_end": "",
 	"user_prompt_begin": "",
