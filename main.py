@@ -371,7 +371,7 @@ class TelegramBotWrapper:
             return False
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
-        if cfg.answer_only_mention:
+        if cfg.only_mention_in_chat and upd.message.chat.type != "private":
             if "".join(["@", context.bot.username]) in user_text:
                 user_text = user_text.replace("".join(["@", context.bot.username]), "")
             else:
