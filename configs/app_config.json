@@ -12,7 +12,7 @@
 	"characters_dir_path": "characters",
 	"character_file": "Example.yaml",
 	"presets_dir_path": "presets",
-	"preset_file": "exllama-default.txt",
+	"preset_file": "LLaMA-ggml-Creative.txt",
 	"model_lang": "en",
 	"user_lang": "en",
 	"history_dir_path": "history",

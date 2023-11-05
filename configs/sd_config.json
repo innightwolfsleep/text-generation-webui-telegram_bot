@@ -2,7 +2,7 @@
 	"prompt": "",
 	"steps": 25,
 	"cfg_scale": 6,
-	"width": 512,
+	"width": 384,
 	"height": 384,
 	"negative_prompt": "(worst quality, low quality:1.4), jpeg artifacts, signature, watermark, interlocked fingers"
 }
