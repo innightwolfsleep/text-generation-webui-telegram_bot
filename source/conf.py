@@ -15,7 +15,9 @@ logging.basicConfig(
 
 class Config(BaseModel):
     flood_avoid_delay: float = Field(default=10.0, description="Delay between new messages to avoid flooding (sec)")
+    answer_delay: float = Field(default=0.0, description="Additional delay between request and answer.")
     generation_timeout: int = Field(default=300, description="Timeout for text generator")
+    only_mention_in_chat: int = Field(default=True, description="If true - answer only for @bot mentions")
 
     # Single shot prefixes
     replace_prefixes: List = Field(default=["!", "-"], description="Prefix to replace last message")
@@ -138,6 +140,7 @@ class Config(BaseModel):
                 )
                 self.user_rules_file_path = config.get("user_rules_file_path", self.user_rules_file_path)
                 self.sd_api_url = config.get("sd_api_url", self.sd_api_url)
+                self.only_mention_in_chat = config.get("only_mention_in_chat", self.only_mention_in_chat)
                 self.sd_config_file_path = config.get("sd_config_file_path", self.sd_config_file_path)
                 cfg.translation_as_hidden_text = config.get(
                     "translation_as_hidden_text", cfg.translation_as_hidden_text

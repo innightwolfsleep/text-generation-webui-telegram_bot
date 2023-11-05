@@ -2,7 +2,7 @@
 	"bot_mode": "admin",
 	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models\\airoboros-m-7b-3.1.2.Q5_K_M.gguf",
+	"model_path": "models\\thespis-mistral-7b-v0.5.Q5_K_M.gguf",
 	"context_prompt_begin": "",
 	"context_prompt_end": "",
 	"user_prompt_begin": "",
@@ -22,7 +22,8 @@
 	"generator_params_file_path": "configs\\generator_params.json",
 	"user_rules_file_path": "configs\\telegram_user_rules.json",
 	"sd_config_file_path": "configs\\sd_config.json",
-	"translation_as_hidden_text": "on",
+	"translate_as_hidden_text": "on",
+	"only_mention_in_chat": false,
 	"sd_api_url": "http://127.0.0.1:7860",
 	"proxy_url": ""
 }
