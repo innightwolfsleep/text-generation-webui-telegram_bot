@@ -496,7 +496,7 @@ class TelegramBotWrapper:
     def show_options_button(self, upd: Update, context: CallbackContext):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
-        send_text = self.get_conversation_info(user)
+        send_text = utils.get_conversation_info(user)
         context.bot.send_message(
             text=send_text,
             chat_id=chat_id,
@@ -733,7 +733,7 @@ class TelegramBotWrapper:
         cfg.preset_file = utils.parse_presets_dir()[preset_char_num]
         cfg.load_preset(preset_file=cfg.preset_file)
         user = self.users[chat_id]
-        send_text = self.get_conversation_info(user)
+        send_text = utils.get_conversation_info(user)
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text,
@@ -818,7 +818,7 @@ class TelegramBotWrapper:
         lang_num = int(option.replace(const.BTN_LANG_LOAD, ""))
         language = list(cfg.language_dict.keys())[lang_num]
         self.users[chat_id].language = language
-        send_text = self.get_conversation_info(user)
+        send_text = utils.get_conversation_info(user)
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text,
@@ -851,32 +851,6 @@ class TelegramBotWrapper:
         )
         context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=lang_buttons)
 
-    @staticmethod
-    def get_conversation_info(user: User):
-        history_tokens = -1
-        context_tokens = -1
-        greeting_tokens = -1
-        conversation_tokens = -1
-        try:
-            history_tokens = tp.get_tokens_count(user.history_as_str())
-            context_tokens = tp.get_tokens_count(user.context)
-            greeting_tokens = tp.get_tokens_count(user.greeting)
-            conversation_tokens = history_tokens + context_tokens + greeting_tokens
-        except Exception as e:
-            logging.error("options_button tokens_count" + str(e))
-
-        max_token_param = "truncation_length"
-        max_tokens = cfg.generation_params[max_token_param] if max_token_param in cfg.generation_params else "???"
-        return (
-            f"{user.name2}\n"
-            f"Conversation length {str(conversation_tokens)}/{max_tokens} tokens.\n"
-            f"(context {(str(context_tokens))}, "
-            f"greeting {(str(greeting_tokens))}, "
-            f"messages {(str(history_tokens))})\n"
-            f"Voice: {user.silero_speaker}\n"
-            f"Language: {user.language}"
-        )
-
     def on_load_voice_button(self, upd: Update, context: CallbackContext, option: str):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
@@ -886,7 +860,7 @@ class TelegramBotWrapper:
         voice_num = int(option.replace(const.BTN_VOICE_LOAD, ""))
         user.silero_speaker = voice_dict[voice_num]
         user.silero_model_id = Silero.voices[user.language]["model"]
-        send_text = self.get_conversation_info(user)
+        send_text = utils.get_conversation_info(user)
         message_id = upd.callback_query.message.message_id
         context.bot.editMessageText(
             text=send_text,
