@@ -1,10 +1,10 @@
 import time
 
 import server
-from modules.utils import get_available_models
-from modules.text_generation import generate_reply
-from modules.text_generation import encode
 from modules import shared
+from modules.text_generation import encode
+from modules.text_generation import generate_reply
+from modules.utils import get_available_models
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
@@ -20,7 +20,9 @@ class Generator(AbstractGenerator):
         pass
 
     @staticmethod
-    def generate_answer(prompt, generation_params, eos_token, stopping_strings, default_answer, turn_template="", **kwargs):
+    def generate_answer(
+        prompt, generation_params, eos_token, stopping_strings, default_answer, turn_template="", **kwargs
+    ):
         generation_params.update({"turn_template": turn_template})
         generation_params.update(
             {

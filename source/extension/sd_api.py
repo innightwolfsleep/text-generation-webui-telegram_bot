@@ -1,10 +1,11 @@
-import json
-import requests
-import os
-import io
-import random
 import base64
+import io
+import json
 import logging
+import os
+import random
+
+import requests
 from PIL import Image, PngImagePlugin
 
 

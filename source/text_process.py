@@ -1,10 +1,9 @@
 import importlib
 import logging
+from re import split, sub
 from threading import Lock
 from time import sleep
 from typing import Tuple, Dict
-from re import split, sub
-
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator

@@ -1,5 +1,6 @@
-from llama_cpp import Llama
 import os
+
+from llama_cpp import Llama
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator

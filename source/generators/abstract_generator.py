@@ -3,7 +3,6 @@ from typing import List, Dict
 
 
 class AbstractGenerator(ABC):
-
     @property
     @abstractmethod
     def model_change_allowed(self) -> bool:
@@ -21,15 +20,16 @@ class AbstractGenerator(ABC):
         pass
 
     @abstractmethod
-    def generate_answer(self,
-                        prompt: str,
-                        generation_params: Dict,
-                        eos_token: str,
-                        stopping_strings: List,
-                        default_answer: str,
-                        turn_template: str,
-                        **kwargs
-                        ) -> str:
+    def generate_answer(
+        self,
+        prompt: str,
+        generation_params: Dict,
+        eos_token: str,
+        stopping_strings: List,
+        default_answer: str,
+        turn_template: str,
+        **kwargs
+    ) -> str:
         """
         Get llm answer
         """

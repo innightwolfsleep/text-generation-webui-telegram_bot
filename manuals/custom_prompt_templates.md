@@ -10,14 +10,12 @@ PROMPT templates in [ext_config.json](https://github.com/innightwolfsleep/text-g
 
 No template
 ```json
-...
 	"context_prompt_begin": "",
 	"context_prompt_end": "",
 	"user_prompt_begin": "",
 	"user_prompt_end": "",
 	"bot_prompt_begin": "",
 	"bot_prompt_end": "",
-...
 ```
 
 ChatML
@@ -33,14 +31,12 @@ ChatML
 <|im_end|>
 ```
 ```json
-...
 	"context_prompt_begin": "<|im_start|>system\n",
 	"context_prompt_end": "<|im_end|>",
 	"user_prompt_begin": "<|im_start|>\n",
 	"user_prompt_end": "<|im_end|>",
 	"bot_prompt_begin": "<|im_start|>\n",
 	"bot_prompt_end": "<|im_end|>",
-...
 ```
 
 
@@ -56,14 +52,12 @@ Llama 2
 {answer}
 ```
 ```json
-...
 	"context_prompt_begin": "[INST] <<SYS>>\n",
 	"context_prompt_end": "<</SYS>>",
 	"user_prompt_begin": "[INST]\n",
 	"user_prompt_end": "[/INST]",
 	"bot_prompt_begin": "",
 	"bot_prompt_end": "",
-...
 ```
 
 LimaRP-Alpaca
@@ -77,14 +71,12 @@ Play the role of Character. You must engage in a roleplaying chat with User belo
 {answer}
 ```
 ```json
-...
 	"context_prompt_begin": "### Instruction:\nPlay the role of Character. You must engage in a roleplaying chat with User below this line. Do not write dialogues and narration for User. Character should respond with messages of medium length.\n",
 	"context_prompt_end": "",
 	"user_prompt_begin": "### Input:\n",
 	"user_prompt_end": "\n",
 	"bot_prompt_begin": "### Response:\n",
 	"bot_prompt_end": "\n",
-...
 ```
 
 Zephyr 
@@ -99,12 +91,10 @@ Zephyr
 </s>
 ```
 ```json
-...
 	"context_prompt_begin": "<|system|>\n",
 	"context_prompt_end": "</s>",
 	"user_prompt_begin": "<|user|>\n",
 	"user_prompt_end": "</s>",
 	"bot_prompt_begin": "<|assistant|>\n",
 	"bot_prompt_end": "</s>",
-...
 ```

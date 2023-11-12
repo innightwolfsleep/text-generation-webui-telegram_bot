@@ -21,11 +21,11 @@ from telegram.ext import (
 )
 from telegram.ext import Updater
 
-
 try:
     import extensions.telegram_bot.source.text_process as tp
     import extensions.telegram_bot.source.const as const
     import extensions.telegram_bot.source.utils as utils
+    import extensions.telegram_bot.source.buttons as buttons
     from extensions.telegram_bot.source.conf import cfg
     from extensions.telegram_bot.source.user import User as User
     from extensions.telegram_bot.source.extension.silero import Silero as Silero
@@ -34,6 +34,7 @@ except ImportError:
     import source.text_process as tp
     import source.const as const
     import source.utils as utils
+    import source.buttons as buttons
     from source.conf import cfg
     from source.user import User as User
     from source.extension.silero import Silero as Silero
@@ -924,72 +925,14 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # load characters char_file from ./characters
-    @staticmethod
-    def get_options_keyboard(chat_id, user: User):
-        keyboard_raw = []
-        # get language
-        if user is not None:
-            language = user.language
-        else:
-            language = "en"
-        language_flag = cfg.language_dict[language]
-        # get voice
-        if user is not None:
-            voice_str = user.silero_speaker
-        else:
-            voice_str = "None"
-        if voice_str == "None":
-            voice = "🔇"
-        else:
-            voice = "🔈"
+    def get_options_keyboard(self, chat_id, user: User):
+        return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 
-        if utils.check_user_rule(chat_id, const.BTN_DOWNLOAD):
-            keyboard_raw.append(InlineKeyboardButton(text="💾Save", callback_data=const.BTN_DOWNLOAD))
-        # if utils.check_user_rule(chat_id, const.BTN_LORE):
-        #    keyboard_raw.append(InlineKeyboardButton(
-        #        text="📜Lore", callback_data=const.BTN_LORE))
-        if utils.check_user_rule(chat_id, const.BTN_CHAR_LIST):
-            keyboard_raw.append(InlineKeyboardButton(text="🎭Chars", callback_data=const.BTN_CHAR_LIST + "-9999"))
-        if utils.check_user_rule(chat_id, const.BTN_RESET):
-            keyboard_raw.append(InlineKeyboardButton(text="⚠Reset", callback_data=const.BTN_RESET))
-        if utils.check_user_rule(chat_id, const.BTN_LANG_LIST):
-            keyboard_raw.append(
-                InlineKeyboardButton(
-                    text=language_flag + "Language",
-                    callback_data=const.BTN_LANG_LIST + "0",
-                )
-            )
-        if utils.check_user_rule(chat_id, const.BTN_VOICE_LIST):
-            keyboard_raw.append(InlineKeyboardButton(text=voice + "Voice", callback_data=const.BTN_VOICE_LIST + "0"))
-        if utils.check_user_rule(chat_id, const.BTN_PRESET_LIST) and tp.generator.preset_change_allowed:
-            keyboard_raw.append(InlineKeyboardButton(text="🔧Presets", callback_data=const.BTN_PRESET_LIST + "0"))
-        if utils.check_user_rule(chat_id, const.BTN_MODEL_LIST) and tp.generator.model_change_allowed:
-            keyboard_raw.append(InlineKeyboardButton(text="🔨Model", callback_data=const.BTN_MODEL_LIST + "0"))
-        if utils.check_user_rule(chat_id, const.BTN_DELETE):
-            keyboard_raw.append(InlineKeyboardButton(text="❌Close", callback_data=const.BTN_DELETE))
-        return InlineKeyboardMarkup([keyboard_raw])
+    def get_chat_keyboard(self, chat_id=0):
+        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id))
 
-    @staticmethod
-    def get_chat_keyboard(chat_id=0):
-        keyboard_raw = []
-        if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
-            keyboard_raw.append(InlineKeyboardButton(text="🥸Impersonate", callback_data=const.BTN_IMPERSONATE))
-        if utils.check_user_rule(chat_id, const.BTN_NEXT):
-            keyboard_raw.append(InlineKeyboardButton(text="▶Next", callback_data=const.BTN_NEXT))
-        if utils.check_user_rule(chat_id, const.BTN_CONTINUE):
-            keyboard_raw.append(InlineKeyboardButton(text="➡Continue", callback_data=const.BTN_CONTINUE))
-        if utils.check_user_rule(chat_id, const.BTN_DEL_WORD):
-            keyboard_raw.append(InlineKeyboardButton(text="⬅Del sentence", callback_data=const.BTN_DEL_WORD))
-        if utils.check_user_rule(chat_id, const.BTN_REGEN):
-            keyboard_raw.append(InlineKeyboardButton(text="♻Regenerate", callback_data=const.BTN_REGEN))
-        if utils.check_user_rule(chat_id, const.BTN_CUTOFF):
-            keyboard_raw.append(InlineKeyboardButton(text="✂️Cutoff", callback_data=const.BTN_CUTOFF))
-        if utils.check_user_rule(chat_id, const.BTN_OPTION):
-            keyboard_raw.append(InlineKeyboardButton(text="⚙Options", callback_data=const.BTN_OPTION))
-        return InlineKeyboardMarkup([keyboard_raw])
-
-    @staticmethod
     def get_switch_keyboard(
+        self,
         opt_list: list,
         shift: int,
         data_list: str,
@@ -997,48 +940,22 @@ class TelegramBotWrapper:
         keyboard_rows=6,
         keyboard_column=2,
     ):
-        # find shift
-        opt_list_length = len(opt_list)
-        keyboard_length = keyboard_rows * keyboard_column
-        if shift >= opt_list_length - keyboard_length:
-            shift = opt_list_length - keyboard_length
-        if shift < 0:
-            shift = 0
-        # append list
-        characters_buttons = []
-        column = 0
-        for i in range(shift, keyboard_length + shift):
-            if i >= len(opt_list):
-                break
-            if column == 0:
-                characters_buttons.append([])
-            column += 1
-            if column >= keyboard_column:
-                column = 0
-            characters_buttons[-1].append(
-                InlineKeyboardButton(text=f"{opt_list[i]}", callback_data=f"{data_load}{str(i)}")
+        return self.keyboard_raw_to_keyboard_tg(
+            buttons.get_switch_keyboard(
+                opt_list=opt_list,
+                shift=shift,
+                data_list=data_list,
+                data_load=data_load,
+                keyboard_rows=keyboard_rows,
+                keyboard_column=keyboard_column,
             )
-            i += 1
-        # add switch buttons
-        ordinary_shift = keyboard_length
-        improved_shift = (
-            int(opt_list_length / 8) if opt_list_length / (keyboard_length * 3) > 8 else keyboard_length * 3
         )
-        begin_shift = 0
-        l_shift = shift - ordinary_shift
-        l_shift3 = shift - improved_shift
-        r_shift = shift + ordinary_shift
-        r_shift3 = shift + improved_shift
-        end_shift = opt_list_length - keyboard_length
-        switch_buttons = [
-            InlineKeyboardButton(text="⏮", callback_data=data_list + str(begin_shift)),
-            InlineKeyboardButton(text="⏪", callback_data=data_list + str(l_shift3)),
-            InlineKeyboardButton(text="◀", callback_data=data_list + str(l_shift)),
-            InlineKeyboardButton(text="🔺", callback_data=data_list + const.BTN_OPTION),
-            InlineKeyboardButton(text="▶", callback_data=data_list + str(r_shift)),
-            InlineKeyboardButton(text="⏩", callback_data=data_list + str(r_shift3)),
-            InlineKeyboardButton(text="⏭", callback_data=data_list + str(end_shift)),
-        ]
-        characters_buttons.append(switch_buttons)
-        # add new keyboard to message!
-        return InlineKeyboardMarkup(characters_buttons)
+
+    @staticmethod
+    def keyboard_raw_to_keyboard_tg(keyboard_raw):
+        keyboard_tg = []
+        for buttons_row in keyboard_raw:
+            keyboard_tg.append([])
+            for button_dict in buttons_row:
+                keyboard_tg[-1].append(InlineKeyboardButton(**button_dict))
+        return InlineKeyboardMarkup(keyboard_tg)
