@@ -25,7 +25,7 @@ class Config(BaseModel):
     # Prefix for persistence "impersonate" message
     permanent_change_name1_prefixes: List = Field(default=["--"], description="Prefix to replace name1")
     permanent_change_name2_prefixes: List = Field(default=["++"], description="Prefix to replace name2")
-    permanent_add_context_prefixes: List = Field(default=["=="], description="Prefix to add in context")
+    permanent_add_context_prefixes: List = Field(default=["==", "="], description="Prefix to add in context")
 
     sd_api_prefixes: List = Field(
         default=[
@@ -37,7 +37,7 @@ class Config(BaseModel):
         ],
         description="Prefix to generate image via SD API",
     )
-    sd_api_prompt_of: str = "Appearance of OBJECT:"
+    sd_api_prompt_of: str = "Detailed description of OBJECT:"
     sd_api_prompt_self: str = "Detailed description of surroundings:"
 
     html_tag = Field(default=["<pre>", "</pre>"], description="html tags for ordinary text")

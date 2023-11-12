@@ -34,7 +34,7 @@ ChatML
 ```
 ```json
 ...
-"context_prompt_begin": "<|im_start|>system\n",
+	"context_prompt_begin": "<|im_start|>system\n",
 	"context_prompt_end": "<|im_end|>",
 	"user_prompt_begin": "<|im_start|>\n",
 	"user_prompt_end": "<|im_end|>",
