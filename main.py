@@ -10,7 +10,7 @@ from typing import Dict, List
 import backoff
 import urllib3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaAudio
-from telegram.constants import CHATACTION_TYPING
+from telegram.constants import CHATACTION_TYPING, CHAT_PRIVATE
 from telegram.error import BadRequest, NetworkError
 from telegram.ext import (
     CallbackContext,
@@ -371,7 +371,7 @@ class TelegramBotWrapper:
             return False
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
-        if cfg.only_mention_in_chat and upd.message.chat.type != "private":
+        if cfg.only_mention_in_chat and upd.message.chat.type != CHAT_PRIVATE:
             if "".join(["@", context.bot.username]) in user_text:
                 user_text = user_text.replace("".join(["@", context.bot.username]), "")
             else:
