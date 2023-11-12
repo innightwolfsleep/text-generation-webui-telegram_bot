@@ -1,7 +1,8 @@
 import os
 from threading import Thread
-from extensions.telegram_bot.main import TelegramBotWrapper
+
 from dotenv import load_dotenv
+from extensions.telegram_bot.main import TelegramBotWrapper
 
 # This module added to get compatibility with text-generation-webui-telegram_bot
 

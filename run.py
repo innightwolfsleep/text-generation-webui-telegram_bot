@@ -1,8 +1,10 @@
-import sys
 import os
+import sys
 from threading import Thread
-from main import TelegramBotWrapper
+
 from dotenv import load_dotenv
+
+from main import TelegramBotWrapper
 
 default_config_file_path = "configs/app_config.json"
 

@@ -1,5 +1,5 @@
-from transformers import AutoTokenizer
 import transformers
+from transformers import AutoTokenizer
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator

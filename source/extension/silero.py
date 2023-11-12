@@ -1,6 +1,6 @@
+import logging
 import re
 
-import logging
 import torch
 from num2words import num2words
 

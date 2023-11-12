@@ -8,10 +8,12 @@ from typing import Dict
 from deep_translator import GoogleTranslator as Translator
 
 try:
+    import extensions.telegram_bot.source.text_process as tp
     import extensions.telegram_bot.source.const as const
     from extensions.telegram_bot.source.conf import cfg
     from extensions.telegram_bot.source.user import User as User
 except ImportError:
+    import source.text_process as tp
     import source.const as const
     from source.conf import cfg
     from source.user import User as User
@@ -117,3 +119,29 @@ def init_check_user(users: Dict[int, User], chat_id):
         )
         users[chat_id].load_user_history(f"{cfg.history_dir_path}/{str(chat_id)}.json")
         users[chat_id].find_and_load_user_char_history(chat_id, cfg.history_dir_path)
+
+
+def get_conversation_info(user: User):
+    history_tokens = -1
+    context_tokens = -1
+    greeting_tokens = -1
+    conversation_tokens = -1
+    try:
+        history_tokens = tp.get_tokens_count(user.history_as_str())
+        context_tokens = tp.get_tokens_count(user.context)
+        greeting_tokens = tp.get_tokens_count(user.greeting)
+        conversation_tokens = history_tokens + context_tokens + greeting_tokens
+    except Exception as e:
+        logging.error("options_button tokens_count" + str(e))
+
+    max_token_param = "truncation_length"
+    max_tokens = cfg.generation_params[max_token_param] if max_token_param in cfg.generation_params else "???"
+    return (
+        f"{user.name2}\n"
+        f"Conversation length {str(conversation_tokens)}/{max_tokens} tokens.\n"
+        f"(context {(str(context_tokens))}, "
+        f"greeting {(str(greeting_tokens))}, "
+        f"messages {(str(history_tokens))})\n"
+        f"Voice: {user.silero_speaker}\n"
+        f"Language: {user.language}"
+    )

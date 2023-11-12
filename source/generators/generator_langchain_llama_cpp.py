@@ -1,10 +1,10 @@
 import os
 
 import langchain.text_splitter
-from langchain.llms import LlamaCpp
 from langchain import PromptTemplate, LLMChain
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.llms import LlamaCpp
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator

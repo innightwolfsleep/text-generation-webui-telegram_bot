@@ -1,10 +1,9 @@
 import importlib
 import logging
+from re import split, sub
 from threading import Lock
 from time import sleep
 from typing import Tuple, Dict
-from re import split, sub
-
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
@@ -40,6 +39,8 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
     return_msg_action = const.MSG_SEND
     # if user is default equal to user1
     name_in = user.name1 if name_in == "" else name_in
+    # for regeneration result checking
+    previous_result = ""
     # acquire generator lock if we can
     generator_lock.acquire(timeout=cfg.generation_timeout)
     # user_input preprocessing
@@ -89,8 +90,9 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         if bot_mode in [const.MODE_QUERY]:
             user.history = []
 
-        # if regenerate - msg_id the same, text and name the same. But history clearing.:
+        # if regenerate - msg_id the same, text and name the same. But history clearing:
         if text_in == const.GENERATOR_MODE_REGENERATE:
+            previous_result = user.history[-1]["out"]
             text_in = user.text_in[-1]
             name_in = user.name_in[-1]
             last_msg_id = user.msg_id[-1]
@@ -235,6 +237,8 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
                     answer = answer[: -len(end)]
             user.history[-1]["out"] = user.history[-1]["out"] + " " + answer
         generator_lock.release()
+        if previous_result == user.history[-1]["out"]:
+            return_msg_action = const.MSG_NOTHING_TO_DO
         return user.history[-1]["out"], return_msg_action
     except Exception as exception:
         logging.error("get_answer (generator part) " + str(exception) + str(exception.args))

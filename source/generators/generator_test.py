@@ -41,4 +41,3 @@ class Generator(AbstractGenerator):
 
     def load_model(self, model_file: str):
         self.model_path = model_file
-
