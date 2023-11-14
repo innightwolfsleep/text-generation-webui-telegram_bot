@@ -41,5 +41,6 @@
     "mirostat_mode": 0,
     "mirostat_tau": 5,
     "mirostat_eta": 0.1,
-    "custom_token_bans": ""
+    "custom_token_bans": "",
+    "temperature_last": false
 }
