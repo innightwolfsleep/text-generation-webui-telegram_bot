@@ -232,7 +232,7 @@ class TelegramBotWrapper:
     @backoff.on_exception(
         backoff.expo,
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
-        max_time=60,
+        max_time=10,
     )
     def send_sd_image(self, upd: Update, context: CallbackContext, answer: str, user_text: str):
         chat_id = upd.message.chat.id
@@ -256,7 +256,7 @@ class TelegramBotWrapper:
     @backoff.on_exception(
         backoff.expo,
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
-        max_time=60,
+        max_time=10,
     )
     def clean_last_message_markup(self, context: CallbackContext, chat_id: int):
         if chat_id in self.users and len(self.users[chat_id].msg_id) > 0:
@@ -269,7 +269,7 @@ class TelegramBotWrapper:
     @backoff.on_exception(
         backoff.expo,
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
-        max_time=60,
+        max_time=10,
     )
     def send_message(self, context: CallbackContext, chat_id: int, text: str):
         user = self.users[chat_id]
@@ -311,7 +311,7 @@ class TelegramBotWrapper:
     @backoff.on_exception(
         backoff.expo,
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
-        max_time=60,
+        max_time=10,
     )
     def edit_message(
         self,
