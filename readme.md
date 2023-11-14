@@ -24,14 +24,14 @@ HOW TO RUN (**standalone app**):
 
 (optional) to use exllama: 
 ```
-git clone https://github.com/turboderp/exllama llm_telegram_bot\source\generators\exllama
-pip install -r llm_telegram_bot\source\generators\exllama\requirements.txt
+git clone https://github.com/turboderp/exllama source\generators\exllama
+pip install -r source\generators\exllama\requirements.txt
 ```
 
 (optional) to use exllamav2: 
 ```
-git clone https://github.com/turboderp/exllamav2 llm_telegram_bot\source\generators\exllamav2
-cd \llm_telegram_bot\source\generators\exllamav2
+git clone https://github.com/turboderp/exllamav2 source\generators\exllamav2
+cd source\generators\exllamav2
 python setup.py install --user
 ```
 
