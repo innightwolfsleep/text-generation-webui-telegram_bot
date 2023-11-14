@@ -1,6 +1,6 @@
 import json
 import time
-from os.path import exists
+from os.path import exists, normpath
 from pathlib import Path
 from typing import List, Dict
 
@@ -191,7 +191,7 @@ class User:
         try:
             # Try to read character_file file.
             char_file_path = Path(f"{characters_dir_path}/{char_file}")
-            with open(char_file_path, "r", encoding="utf-8") as user_file:
+            with open(normpath(char_file_path), "r", encoding="utf-8") as user_file:
                 if char_file.split(".")[-1] == "json":
                     data = json.loads(user_file.read())
                 else:
@@ -286,7 +286,7 @@ class User:
         """
         try:
             if exists(file_path):
-                with open(file_path, "r", encoding="utf-8") as user_file:
+                with open(normpath(file_path), "r", encoding="utf-8") as user_file:
                     data = user_file.read()
                 self.from_json(data)
                 if self.char_file == "":

@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+from os.path import exists, normpath
 from typing import List, Dict
 
 from pydantic import BaseModel, Field
@@ -112,8 +112,8 @@ class Config(BaseModel):
         logging.info(f"### Config LOAD DONE ###")
 
     def load_config_file(self, config_file_path: str):
-        if os.path.exists(config_file_path):
-            with open(config_file_path, "r") as config_file_path:
+        if exists(config_file_path):
+            with open(normpath(config_file_path), "r") as config_file_path:
                 config = json.loads(config_file_path.read())
                 self.bot_mode = config.get("bot_mode", self.bot_mode)
                 self.user_name_template = config.get("user_name_template", self.user_name_template)
@@ -153,8 +153,8 @@ class Config(BaseModel):
         if generator_params_file_path is not None:
             self.generator_params_file_path = generator_params_file_path
         # Load user generator parameters
-        if os.path.exists(self.generator_params_file_path):
-            with open(self.generator_params_file_path, "r") as params_file:
+        if exists(self.generator_params_file_path):
+            with open(normpath(self.generator_params_file_path), "r") as params_file:
                 self.generation_params = json.loads(params_file.read())
         else:
             logging.error("Cant find generator_params_file")
@@ -163,8 +163,8 @@ class Config(BaseModel):
         if preset_file is not None:
             self.preset_file = preset_file
         preset_path = self.presets_dir_path + "/" + self.preset_file
-        if os.path.exists(preset_path):
-            with open(preset_path, "r") as preset_file:
+        if exists(preset_path):
+            with open(normpath(preset_path), "r") as preset_file:
                 for line in preset_file.readlines():
                     name, value = line.replace("\n", "").replace("\r", "").replace(": ", "=").split("=")
                     if name in self.generation_params:

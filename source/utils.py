@@ -1,7 +1,7 @@
 import json
 import logging
-import os
 from os import listdir
+from os.path import exists, normpath
 from re import sub
 from typing import Dict
 
@@ -75,8 +75,8 @@ def parse_presets_dir() -> list:
 # User checking rules
 def check_user_permission(chat_id):
     # Read admins list
-    if os.path.exists(cfg.users_file_path):
-        with open(cfg.users_file_path, "r") as users_file:
+    if exists(cfg.users_file_path):
+        with open(normpath(cfg.users_file_path), "r") as users_file:
             users_list = users_file.read().split()
     else:
         users_list = []
@@ -88,16 +88,16 @@ def check_user_permission(chat_id):
 
 
 def check_user_rule(chat_id, option):
-    if os.path.exists(cfg.user_rules_file_path):
-        with open(cfg.user_rules_file_path, "r") as user_rules_file:
+    if exists(cfg.user_rules_file_path):
+        with open(normpath(cfg.user_rules_file_path), "r") as user_rules_file:
             user_rules = json.loads(user_rules_file.read())
     # if checked button with numeral postfix  - delete numerals
     option = sub(r"[0123456789-]", "", option)
     if option.endswith(const.BTN_OPTION):
         option = const.BTN_OPTION
     # Read admins list
-    if os.path.exists(cfg.admins_file_path):
-        with open(cfg.admins_file_path, "r") as admins_file:
+    if exists(cfg.admins_file_path):
+        with open(normpath(cfg.admins_file_path), "r") as admins_file:
             admins_list = admins_file.read().split()
     else:
         admins_list = []

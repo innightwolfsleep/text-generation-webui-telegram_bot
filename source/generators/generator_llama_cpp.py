@@ -56,5 +56,5 @@ class Generator(AbstractGenerator):
         return bins
 
     def load_model(self, model_file: str):
-        with open("models\\" + model_file, "r") as model:
+        with open(os.path.normpath("models\\" + model_file), "r") as model:
             self.llm: Llama = Llama(model_path=model.read(), n_ctx=self.n_ctx, seed=self.seed)
