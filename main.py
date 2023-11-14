@@ -150,7 +150,7 @@ class TelegramBotWrapper:
         context.bot.send_message(
             text=send_text,
             chat_id=chat_id,
-            reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
+            reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
             parse_mode="HTML",
         )
 
@@ -211,7 +211,7 @@ class TelegramBotWrapper:
         context.bot.send_message(
             chat_id=chat_id,
             text=send_text,
-            reply_markup=self.get_options_keyboard(chat_id, user),
+            reply_markup=self.get_initial_keyboard(chat_id, user),
             parse_mode="HTML",
         )
 
@@ -460,6 +460,10 @@ class TelegramBotWrapper:
             self.on_impersonate_button(upd=upd, context=context)
         elif option == const.BTN_NEXT and utils.check_user_rule(chat_id, option):
             self.on_next_message_button(upd=upd, context=context)
+        elif option == const.BTN_IMPERSONATE_INIT and utils.check_user_rule(chat_id, option):
+            self.on_impersonate_button(upd=upd, context=context, initial=True)
+        elif option == const.BTN_NEXT_INIT and utils.check_user_rule(chat_id, option):
+            self.on_next_message_button(upd=upd, context=context, initial=True)
         elif option == const.BTN_DEL_WORD and utils.check_user_rule(chat_id, option):
             self.on_delete_word_button(upd=upd, context=context)
         elif option == const.BTN_REGEN and utils.check_user_rule(chat_id, option):
@@ -510,10 +514,16 @@ class TelegramBotWrapper:
         message_id = upd.callback_query.message.message_id
         context.bot.deleteMessage(chat_id=chat_id, message_id=message_id)
 
-    def on_impersonate_button(self, upd: Update, context: CallbackContext):
+    def on_impersonate_button(self, upd: Update, context: CallbackContext, initial=False):
         chat_id = upd.callback_query.message.chat.id
+        message_id = upd.callback_query.message.message_id
         user = self.users[chat_id]
-        self.clean_last_message_markup(context, chat_id)
+        if initial:
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=message_id, reply_markup=self.get_options_keyboard(chat_id, user)
+            )
+        else:
+            self.clean_last_message_markup(context, chat_id)
         answer, _ = tp.get_answer(
             text_in=const.GENERATOR_MODE_IMPERSONATE,
             user=user,
@@ -525,10 +535,16 @@ class TelegramBotWrapper:
         user.msg_id.append(message.message_id)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_next_message_button(self, upd: Update, context: CallbackContext):
+    def on_next_message_button(self, upd: Update, context: CallbackContext, initial=False):
         chat_id = upd.callback_query.message.chat.id
+        message_id = upd.callback_query.message.message_id
         user = self.users[chat_id]
-        self.clean_last_message_markup(context, chat_id)
+        if initial:
+            context.bot.editMessageReplyMarkup(
+                chat_id=chat_id, message_id=message_id, reply_markup=self.get_options_keyboard(chat_id, user)
+            )
+        else:
+            self.clean_last_message_markup(context, chat_id)
         answer, _ = tp.get_answer(
             text_in=const.GENERATOR_MODE_NEXT,
             user=user,
@@ -654,7 +670,7 @@ class TelegramBotWrapper:
         context.bot.send_message(
             chat_id=chat_id,
             text=send_text,
-            reply_markup=self.get_options_keyboard(chat_id, user),
+            reply_markup=self.get_initial_keyboard(chat_id, user),
             parse_mode="HTML",
         )
 
@@ -784,7 +800,7 @@ class TelegramBotWrapper:
             text=send_text,
             chat_id=chat_id,
             parse_mode="HTML",
-            reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
+            reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
         )
 
     def keyboard_characters_button(self, upd: Update, context: CallbackContext, option: str):
@@ -899,6 +915,11 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # load characters char_file from ./characters
+    def get_initial_keyboard(self, chat_id, user: User):
+        options = buttons.get_options_keyboard(chat_id=chat_id, user=user)
+        chat_actions = buttons.get_chat_init_keyboard(chat_id=chat_id)
+        return self.keyboard_raw_to_keyboard_tg([options[0], chat_actions[0]])
+
     def get_options_keyboard(self, chat_id, user: User):
         return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 
