@@ -150,7 +150,7 @@ class TelegramBotWrapper:
         context.bot.send_message(
             text=send_text,
             chat_id=chat_id,
-            reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
+            reply_markup=self.get_new_char_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
             parse_mode="HTML",
         )
 
@@ -211,7 +211,7 @@ class TelegramBotWrapper:
         context.bot.send_message(
             chat_id=chat_id,
             text=send_text,
-            reply_markup=self.get_options_keyboard(chat_id, user),
+            reply_markup=self.get_new_char_keyboard(chat_id, user),
             parse_mode="HTML",
         )
 
@@ -459,6 +459,10 @@ class TelegramBotWrapper:
         elif option == const.BTN_IMPERSONATE and utils.check_user_rule(chat_id, option):
             self.on_impersonate_button(upd=upd, context=context)
         elif option == const.BTN_NEXT and utils.check_user_rule(chat_id, option):
+            self.on_next_message_button(upd=upd, context=context)
+        elif option == const.BTN_IMPERSONATE_INIT and utils.check_user_rule(chat_id, option):
+            self.on_impersonate_button(upd=upd, context=context)
+        elif option == const.BTN_NEXT_INIT and utils.check_user_rule(chat_id, option):
             self.on_next_message_button(upd=upd, context=context)
         elif option == const.BTN_DEL_WORD and utils.check_user_rule(chat_id, option):
             self.on_delete_word_button(upd=upd, context=context)
@@ -784,7 +788,7 @@ class TelegramBotWrapper:
             text=send_text,
             chat_id=chat_id,
             parse_mode="HTML",
-            reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
+            reply_markup=self.get_new_char_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
         )
 
     def keyboard_characters_button(self, upd: Update, context: CallbackContext, option: str):
@@ -899,6 +903,11 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # load characters char_file from ./characters
+    def get_new_char_keyboard(self, chat_id, user: User):
+        options = buttons.get_options_keyboard(chat_id=chat_id, user=user)
+        chat_actions = buttons.get_chat_init_keyboard(chat_id=chat_id)
+        return self.keyboard_raw_to_keyboard_tg([options[0], chat_actions[0]])
+
     def get_options_keyboard(self, chat_id, user: User):
         return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 

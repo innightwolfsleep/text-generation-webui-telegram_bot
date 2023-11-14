@@ -73,6 +73,15 @@ def get_chat_keyboard(chat_id=0):
     return [keyboard_raw]
 
 
+def get_chat_init_keyboard(chat_id=0):
+    keyboard_raw = []
+    if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
+        keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE_INIT})
+    if utils.check_user_rule(chat_id, const.BTN_NEXT):
+        keyboard_raw.append({"text": "▶Next", "callback_data": const.BTN_NEXT_INIT})
+    return [keyboard_raw]
+
+
 def get_switch_keyboard(
     opt_list: list,
     shift: int,
