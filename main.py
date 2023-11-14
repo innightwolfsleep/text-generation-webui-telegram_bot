@@ -1,8 +1,9 @@
 import io
 import json
 import logging
-import os.path
 import time
+from os.path import exists, normpath
+from os import remove
 from pathlib import Path
 from threading import Thread, Event
 from typing import Dict, List
@@ -63,8 +64,8 @@ class TelegramBotWrapper:
         # SdApi initiate
         self.SdApi = SdApi(cfg.sd_api_url, cfg.sd_config_file_path)
         # Load user rules
-        if os.path.exists(cfg.user_rules_file_path):
-            with open(cfg.user_rules_file_path, "r") as user_rules_file:
+        if exists(cfg.user_rules_file_path):
+            with open(normpath(cfg.user_rules_file_path), "r") as user_rules_file:
                 self.user_rules = json.loads(user_rules_file.read())
         else:
             logging.error("Cant find user_rules_file_path: " + cfg.user_rules_file_path)
@@ -94,7 +95,7 @@ class TelegramBotWrapper:
         }
         if not bot_token:
             token_file_name = token_file_name or cfg.token_file_path
-            with open(token_file_name, "r", encoding="utf-8") as f:
+            with open(normpath(token_file_name), "r", encoding="utf-8") as f:
                 bot_token = f.read().strip()
         for token in bot_token.split(","):
             updater = Updater(token=token, use_context=True, request_kwargs=request_kwargs)
@@ -200,7 +201,7 @@ class TelegramBotWrapper:
             return False
         utils.init_check_user(self.users, chat_id)
         default_user_file_path = str(Path(f"{cfg.history_dir_path}/{str(chat_id)}.json"))
-        with open(default_user_file_path, "wb") as f:
+        with open(normpath(default_user_file_path), "wb") as f:
             context.bot.get_file(upd.message.document.file_id).download(out=f)
         user.load_user_history(default_user_file_path)
         if len(user.history) > 0:
@@ -245,10 +246,10 @@ class TelegramBotWrapper:
                 answer = answer[:1023]
             if len(file_list) > 0:
                 for image_path in file_list:
-                    if os.path.exists(image_path):
-                        with open(image_path, "rb") as image_file:
+                    if exists(image_path):
+                        with open(normpath(image_path), "rb") as image_file:
                             context.bot.send_photo(caption=answer, chat_id=chat_id, photo=image_file)
-                        os.remove(image_path)
+                        remove(image_path)
         except Exception as e:
             logging.error("send_sd_image: " + str(e))
             context.bot.send_message(text=answer, chat_id=chat_id)
@@ -289,7 +290,7 @@ class TelegramBotWrapper:
                 audio_text = text
             audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
-                with open(audio_path, "rb") as audio:
+                with open(normpath(audio_path), "rb") as audio:
                     message = context.bot.send_audio(
                         chat_id=chat_id,
                         audio=audio,
@@ -342,7 +343,7 @@ class TelegramBotWrapper:
                 audio_text = text
             audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
-                with open(audio_path, "rb") as audio:
+                with open(normpath(audio_path), "rb") as audio:
                     media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
                     context.bot.edit_message_media(
                         chat_id=chat_id,
