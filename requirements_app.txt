@@ -1,4 +1,4 @@
-python-telegram-bot==13.15
+aiogram==3.1.1
 pyyaml>=6.0.0
 deep-translator>=1.9.2
 omegaconf==2.3.0
@@ -14,4 +14,4 @@ langchain>=0.0.286
 requests>=2.31.0
 urllib3>=2.0.4
 python-dotenv==1.0.0
-pydantic==1.10.13
+pydantic==2.5.1

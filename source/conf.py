@@ -40,11 +40,11 @@ class Config(BaseModel):
     sd_api_prompt_of: str = "Detailed description of OBJECT:"
     sd_api_prompt_self: str = "Detailed description of surroundings:"
 
-    html_tag = Field(default=["<pre>", "</pre>"], description="html tags for ordinary text")
-    translate_html_tag = Field(
+    html_tag: list = Field(default=["<pre>", "</pre>"], description="html tags for ordinary text")
+    translate_html_tag: list  = Field(
         default=['<span class="tg-spoiler">', "</span>"], description="html tags for translated text"
     )
-    translation_as_hidden_text = Field(
+    translation_as_hidden_text: str = Field(
         default="on",
         description="if 'on' translation showing after original message "
         "inside translate_html_tag. "
@@ -69,36 +69,36 @@ class Config(BaseModel):
     )
 
     # Set internal config vars
-    history_dir_path = "history"
-    characters_dir_path = "characters"
-    presets_dir_path = "presets"
-    token_file_path = "telegram_token.txt"
-    admins_file_path = "telegram_admins.txt"
-    users_file_path = "telegram_users.txt"
-    generator_params_file_path = "generator_params.json"
-    user_rules_file_path = "telegram_user_rules.json"
-    sd_api_url = "http://127.0.0.1:7860"
-    sd_config_file_path = "sd_config.json"
-    proxy_url = ""
+    history_dir_path: str = "history"
+    characters_dir_path: str = "characters"
+    presets_dir_path: str = "presets"
+    token_file_path: str = "telegram_token.txt"
+    admins_file_path: str = "telegram_admins.txt"
+    users_file_path: str = "telegram_users.txt"
+    generator_params_file_path: str = "generator_params.json"
+    user_rules_file_path: str = "telegram_user_rules.json"
+    sd_api_url: str = "http://127.0.0.1:7860"
+    sd_config_file_path: str = "sd_config.json"
+    proxy_url: str = ""
     # Set bot mode
-    bot_mode = "admin"
-    user_name_template = ""  # template for username. "" - default (You), FIRSTNAME, LASTNAME, USERNAME, ID
-    generator_script = ""  # mode loaded from config
-    model_path = ""
-    context_prompt_begin = ""
-    context_prompt_end = ""
-    bot_prompt_begin = ""
-    bot_prompt_end = ""
-    user_prompt_begin = ""
-    user_prompt_end = ""
+    bot_mode: str = "admin"
+    user_name_template: str = ""  # template for username. "" - default (You), FIRSTNAME, LASTNAME, USERNAME, ID
+    generator_script: str = ""  # mode loaded from config
+    llm_path: str = ""
+    context_prompt_begin: str = ""
+    context_prompt_end: str = ""
+    bot_prompt_begin: str = ""
+    bot_prompt_end: str = ""
+    user_prompt_begin: str = ""
+    user_prompt_end: str = ""
     # Set default character json file
-    character_file = "Example.yaml"
-    preset_file = "LLaMA-Creative.txt"
+    character_file: str = "Example.yaml"
+    preset_file: str = "LLaMA-Creative.txt"
     # Set translator
-    model_lang = "en"
-    user_lang = "en"
+    llm_lang: str = "en"
+    user_lang: str = "en"
     # generator params!
-    generation_params = {}
+    generation_params: dict = {}
 
     # generator initiate
 
@@ -118,7 +118,7 @@ class Config(BaseModel):
                 self.bot_mode = config.get("bot_mode", self.bot_mode)
                 self.user_name_template = config.get("user_name_template", self.user_name_template)
                 self.generator_script = config.get("generator_script", self.generator_script)
-                self.model_path = config.get("model_path", self.model_path)
+                self.llm_path = config.get("model_path", self.llm_path)
                 self.context_prompt_begin = config.get("context_prompt_begin", self.context_prompt_begin)
                 self.context_prompt_end = config.get("context_prompt_end", self.context_prompt_end)
                 self.bot_prompt_begin = config.get("bot_prompt_begin", self.bot_prompt_begin)
@@ -129,7 +129,7 @@ class Config(BaseModel):
                 self.preset_file = config.get("preset_file", self.preset_file)
                 self.characters_dir_path = config.get("characters_dir_path", self.characters_dir_path)
                 self.character_file = config.get("character_file", self.character_file)
-                self.model_lang = config.get("model_lang", self.model_lang)
+                self.llm_lang = config.get("model_lang", self.llm_lang)
                 self.user_lang = config.get("user_lang", self.user_lang)
                 self.history_dir_path = config.get("history_dir_path", self.history_dir_path)
                 self.token_file_path = config.get("token_file_path", self.token_file_path)

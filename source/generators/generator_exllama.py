@@ -31,7 +31,7 @@ class Generator(AbstractGenerator):
         # Create config, model, tokenizer and generator
 
         self.ex_config = ExLlamaConfig(self.model_config_path)  # create config from config.json
-        self.ex_config.model_path = self.model_path  # supply path to model weights file
+        self.ex_config.llm_path = self.model_path  # supply path to model weights file
         self.ex_config.max_seq_len = n_ctx
         self.ex_config.max_input_len = n_ctx
         self.ex_config.max_attention_size = n_ctx**2

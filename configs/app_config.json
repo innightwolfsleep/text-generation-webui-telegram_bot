@@ -2,7 +2,7 @@
 	"bot_mode": "admin",
 	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models/thespis-13b-v0.6.Q3_K_M.gguf",
+	"model_path": "models/timecrystal-l2-13b.Q3_K_M.gguf",
 	"context_prompt_begin": "",
 	"context_prompt_end": "",
 	"user_prompt_begin": "",

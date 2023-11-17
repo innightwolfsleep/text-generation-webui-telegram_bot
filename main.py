@@ -10,17 +10,16 @@ from typing import Dict, List
 
 import backoff
 import urllib3
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaAudio
-from telegram.constants import CHATACTION_TYPING, CHAT_PRIVATE
-from telegram.error import BadRequest, NetworkError
-from telegram.ext import (
-    CallbackContext,
-    Filters,
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-)
-from telegram.ext import Updater
+from aiogram import Bot, types
+from aiogram.types import Message
+from aiogram.methods import SendMessage, SendPhoto, SendAudio
+from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.dispatcher.dispatcher import Dispatcher
+from aiogram.filters.command import Command
+from aiogram.types.input_file import InputFile
+
+logging.basicConfig(level=logging.INFO)
+
 
 try:
     import extensions.telegram_bot.source.text_process as tp
@@ -42,10 +41,12 @@ except ImportError:
     from source.extension.sd_api import SdApi as SdApi
 
 
-class TelegramBotWrapper:
+class AiogramLlmBot:
     # Set dummy obj for telegram updater
-    updaters: List[Updater] = []
-
+    # Объект бота
+    bot: Bot = None
+    # Диспетчер
+    dp: Dispatcher = Dispatcher()
     # dict of User data dicts, here stored all users' session info.
     users: Dict[int, User] = {}
 
@@ -73,7 +74,7 @@ class TelegramBotWrapper:
         # initiate generator
         tp.init(
             cfg.generator_script,
-            cfg.model_path,
+            cfg.llm_path,
             n_ctx=cfg.generation_params.get("chat_prompt_size", 1024),
             n_gpu_layers=cfg.generation_params.get("n_gpu_layers", 0),
         )
@@ -82,7 +83,7 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # Run bot with token! Initiate updater obj!
-    def run_telegram_bot(self, bot_token="", token_file_name=""):
+    async def run_telegram_bot(self, bot_token="", token_file_name=""):
         """
         Start the Telegram bot.
         :param bot_token: (str) The Telegram bot tokens separated by ','
@@ -97,67 +98,21 @@ class TelegramBotWrapper:
             token_file_name = token_file_name or cfg.token_file_path
             with open(normpath(token_file_name), "r", encoding="utf-8") as f:
                 bot_token = f.read().strip()
-        for token in bot_token.split(","):
-            updater = Updater(token=token, use_context=True, request_kwargs=request_kwargs)
-            updater.dispatcher.add_handler(CommandHandler("start", self.cb_start_command)),
-            updater.dispatcher.add_handler(MessageHandler(Filters.text, self.cb_get_message))
-            doc = "application/json"
-            updater.dispatcher.add_handler(
-                MessageHandler(
-                    Filters.document.mime_type(doc),
-                    self.cb_get_json_document,
-                )
-            )
-            updater.dispatcher.add_handler(CallbackQueryHandler(self.cb_opt_button))
-            updater.start_polling()
-            logging.info("Telegram bot started!" + str(updater))
-            self.updaters.append(updater)
-            logging.info(f"### TelegramBotWrapper run_telegram_bot {str(updater)} DONE ###")
-        Thread(target=self.no_sleep_callback).start()
+        self.bot = Bot(token=bot_token)
+        self.dp = Dispatcher()
+        self.dp.message.register(self.thread_welcome_message, Command("start"))
+        self.dp.message.register(self.thread_get_message)
+        self.dp.callback_query.register(self.thread_push_button)
+        await self.dp.start_polling(self.bot)
 
-    def no_sleep_callback(self):
-        while True:
-            for updater in self.updaters:
-                try:
-                    updater.bot.send_message(chat_id=99999999999, text="One message every minute")
-                except BadRequest:
-                    pass
-                except Exception as error:
-                    logging.error(error)
-            time.sleep(60)
-
-    # =============================================================================
-    # Handlers
-    def cb_start_command(self, upd, context):
-        Thread(target=self.thread_welcome_message, args=(upd, context)).start()
-
-    def cb_get_message(self, upd, context):
-        Thread(target=self.thread_get_message, args=(upd, context)).start()
-
-    def cb_opt_button(self, upd, context):
-        Thread(target=self.thread_push_button, args=(upd, context)).start()
-
-    def cb_get_json_document(self, upd, context):
-        Thread(target=self.thread_get_json_document, args=(upd, context)).start()
+        # Thread(target=self.no_sleep_callback).start()
 
     # =============================================================================
     # Additional telegram actions
-    def thread_welcome_message(self, upd: Update, context: CallbackContext):
-        chat_id = upd.effective_chat.id
-        if not utils.check_user_permission(chat_id):
-            return False
-        utils.init_check_user(self.users, chat_id)
-        send_text = self.make_template_message("char_loaded", chat_id)
-        context.bot.send_message(
-            text=send_text,
-            chat_id=chat_id,
-            reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
-            parse_mode="HTML",
-        )
 
     @staticmethod
-    def get_user_profile_name(upd: Update) -> str:
-        message = upd.message or upd.callback_query.message
+    def get_user_profile_name(message) -> str:
+        message = message or message.message
         user_name = cfg.user_name_template.replace("FIRSTNAME", message.from_user.first_name or "")
         user_name = user_name.replace("LASTNAME", message.from_user.last_name or "")
         user_name = user_name.replace("USERNAME", message.from_user.username or "")
@@ -194,7 +149,7 @@ class TelegramBotWrapper:
     # =============================================================================
     # Work with history! Init/load/save functions
 
-    def thread_get_json_document(self, upd: Update, context: CallbackContext):
+    def thread_get_json_document(self, upd, context):
         chat_id = upd.message.chat.id
         user = self.users[chat_id]
         if not utils.check_user_permission(chat_id):
@@ -216,26 +171,25 @@ class TelegramBotWrapper:
             parse_mode="HTML",
         )
 
-    def start_send_typing_status(self, context: CallbackContext, chat_id: int) -> Event:
+    async def start_send_typing_status(self, chat_id: int) -> Event:
         typing_active = Event()
         typing_active.set()
-        Thread(target=self.thread_typing_status, args=(context, chat_id, typing_active)).start()
+        await self.thread_typing_status(chat_id, typing_active)
         return typing_active
 
-    @staticmethod
-    def thread_typing_status(context: CallbackContext, chat_id: int, typing_active: Event):
+    async def thread_typing_status(self, chat_id: int, typing_active: Event):
         limit_counter = int(cfg.generation_timeout / 5)
         while typing_active.is_set() and limit_counter > 0:
-            context.bot.send_chat_action(chat_id=chat_id, action=CHATACTION_TYPING)
+            await self.bot.send_chat_action(chat_id=chat_id, action="typing")
             time.sleep(5)
             limit_counter -= 1
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
+        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def send_sd_image(self, upd: Update, context: CallbackContext, answer: str, user_text: str):
+    def send_sd_image(self, upd, context, answer: str, user_text: str):
         chat_id = upd.message.chat.id
         try:
             file_list = self.SdApi.txt_to_image(answer)
@@ -256,10 +210,10 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
+        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def clean_last_message_markup(self, context: CallbackContext, chat_id: int):
+    def clean_last_message_markup(self, context, chat_id: int):
         if chat_id in self.users and len(self.users[chat_id].msg_id) > 0:
             last_msg = self.users[chat_id].msg_id[-1]
             try:
@@ -269,20 +223,19 @@ class TelegramBotWrapper:
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
+        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def send_message(self, context: CallbackContext, chat_id: int, text: str):
+    async def send_message(self, chat_id: int, text: str) -> Message:
         user = self.users[chat_id]
         text = utils.prepare_text(text, user, "to_user")
         if user.silero_speaker == "None" or user.silero_model_id == "None":
-            message = context.bot.send_message(
+            message = await self.bot.send_message(
                 text=text,
                 chat_id=chat_id,
                 parse_mode="HTML",
                 reply_markup=self.get_chat_keyboard(),
             )
-            return message
         else:
             if ":" in text:
                 audio_text = ":".join(text.split(":")[1:])
@@ -290,34 +243,31 @@ class TelegramBotWrapper:
                 audio_text = text
             audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
-                with open(normpath(audio_path), "rb") as audio:
-                    message = context.bot.send_audio(
-                        chat_id=chat_id,
-                        audio=audio,
-                        caption=text,
-                        filename=f"{user.name2}_to_{user.name1}.wav",
-                        parse_mode="HTML",
-                        reply_markup=self.get_chat_keyboard(),
-                    )
+                message = await self.bot.send_audio(
+                    chat_id=chat_id,
+                    audio=InputFile(audio_path),
+                    caption=text,
+                    parse_mode="HTML",
+                    reply_markup=self.get_chat_keyboard(),
+                )
             else:
-                message = context.bot.send_message(
+                message = await self.bot.send_message(
                     text=text,
                     chat_id=chat_id,
                     parse_mode="HTML",
                     reply_markup=self.get_chat_keyboard(),
                 )
-                return message
-            return message
+        return message
 
     @backoff.on_exception(
         backoff.expo,
-        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError, NetworkError),
+        (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
     def edit_message(
         self,
-        context: CallbackContext,
-        upd: Update,
+        context,
+        upd,
         chat_id: int,
         text: str,
         message_id: int,
@@ -344,7 +294,8 @@ class TelegramBotWrapper:
             audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
                 with open(normpath(audio_path), "rb") as audio:
-                    media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
+                    # media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
+                    media = None
                     context.bot.edit_message_media(
                         chat_id=chat_id,
                         media=media,
@@ -362,10 +313,26 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # Message handler
-    def thread_get_message(self, upd: Update, context: CallbackContext):
+
+    async def thread_welcome_message(self, message: types.Message):
+        chat_id = message.chat.id
+        if not utils.check_user_permission(chat_id):
+            return False
+        utils.init_check_user(self.users, chat_id)
+        send_text = self.make_template_message("char_loaded", chat_id)
+        await self.bot.send_message(
+            chat_id=chat_id,
+            text=send_text,
+            reply_to_message_id=None,
+            reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
+            parse_mode="HTML",
+        )
+
+    async def thread_get_message(self, message: types.Message):
+        print("thread_get_message", message)
         # Extract user input and chat ID
-        user_text = upd.message.text
-        chat_id = upd.message.chat.id
+        user_text = message.text
+        chat_id = message.chat.id
         utils.init_check_user(self.users, chat_id)
         user = self.users[chat_id]
         # check permission and flooding
@@ -373,13 +340,13 @@ class TelegramBotWrapper:
             return False
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
-        if cfg.only_mention_in_chat and upd.message.chat.type != CHAT_PRIVATE:
-            if "".join(["@", context.bot.username]) in user_text:
-                user_text = user_text.replace("".join(["@", context.bot.username]), "")
+        if cfg.only_mention_in_chat and message.chat.type != "CHAT_PRIVATE":
+            if "".join(["@", message.from_user.username]) in user_text:
+                user_text = user_text.replace("".join(["@", message.from_user.username]), "")
             else:
                 return
         # Send "typing" message
-        typing = self.start_send_typing_status(context, chat_id)
+        # typing = self.start_send_typing_status(chat_id)
         try:
             if utils.check_user_rule(chat_id=chat_id, option=const.GET_MESSAGE) is not True:
                 return False
@@ -391,39 +358,42 @@ class TelegramBotWrapper:
                 user=user,
                 bot_mode=cfg.bot_mode,
                 generation_params=cfg.generation_params,
-                name_in=self.get_user_profile_name(upd),
+                name_in=self.get_user_profile_name(message),
             )
             if system_message == const.MSG_SYSTEM:
-                context.bot.send_message(text=answer, chat_id=chat_id)
+                await message.reply(text=answer)
             elif system_message == const.MSG_SD_API:
                 user.truncate_last_message()
-                self.send_sd_image(upd, context, answer, user_text)
+                # self.send_sd_image(upd, context, answer, user_text)
             else:
                 if system_message == const.MSG_DEL_LAST:
-                    context.bot.deleteMessage(chat_id=chat_id, message_id=user.msg_id[-1])
-                message = self.send_message(text=answer, chat_id=chat_id, context=context)
+                    await message.delete()
+                # message = self.send_message(text=answer, chat_id=chat_id, context=context)
+                reply = await self.send_message(text=answer, chat_id=chat_id)
+                # reply = await message.reply(text=answer)
                 # Clear buttons on last message (if they exist in current thread)
-                self.clean_last_message_markup(context, chat_id)
+                # self.clean_last_message_markup(context, chat_id)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 # Add message ID to message history
-                user.msg_id.append(message.message_id)
+                user.msg_id.append(reply.message_id)
                 # Save user history
                 user.save_user_history(chat_id, cfg.history_dir_path)
         except Exception as e:
-            logging.error(str(e))
+            logging.error("thread_get_message" + str(e) + str(e.args))
         finally:
-            typing.clear()
+            pass
+            # typing.clear()
 
     # =============================================================================
     # button
-    def thread_push_button(self, upd: Update, context: CallbackContext):
-        upd.callback_query.answer()
-        chat_id = upd.callback_query.message.chat.id
-        msg_id = upd.callback_query.message.message_id
-        option = upd.callback_query.data
+    async def thread_push_button(self, cbq: types.CallbackQuery):
+        print("thread_push_button", cbq)
+        chat_id = cbq.message.chat.id
+        msg_id = cbq.message.message_id
+        option = cbq.data
         if not utils.check_user_permission(chat_id):
             return False
         # Send "typing" message
-        typing = self.start_send_typing_status(context, chat_id)
+        # typing = self.start_send_typing_status(context, chat_id)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         try:
             # if new user - init
             utils.init_check_user(self.users, chat_id)
@@ -438,21 +408,24 @@ class TelegramBotWrapper:
             ]:
                 # if lost message button - clear markup and return
                 if len(self.users[chat_id].msg_id) == 0:
-                    context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg_id, reply_markup=None)
+                    await cbq.message.edit_reply_markup(reply_markup=None)
                     return
                 else:
                     # if msg list not empty but  lost button - clear markup and return
                     if msg_id != self.users[chat_id].msg_id[-1]:
-                        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg_id, reply_markup=None)
+                        await cbq.message.edit_reply_markup(reply_markup=None)
                         return
-            self.handle_button_option(option, chat_id, upd, context)
+            self.handle_button_option(option, chat_id, cbq)
             self.users[chat_id].save_user_history(chat_id, cfg.history_dir_path)
         except Exception as e:
             logging.error("thread_push_button " + str(e) + str(e.args))
         finally:
-            typing.clear()
+            pass
+            # typing.clear()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    def handle_button_option(self, option, chat_id, upd, context):
+    def handle_button_option(self, option, chat_id, cbq: types.CallbackQuery):
+        context = None
+        upd = None
         if option == const.BTN_RESET and utils.check_user_rule(chat_id, option):
             self.on_reset_history_button(upd=upd, context=context)
         elif option == const.BTN_CONTINUE and utils.check_user_rule(chat_id, option):
@@ -498,7 +471,7 @@ class TelegramBotWrapper:
         elif option.startswith(const.BTN_VOICE_LOAD) and utils.check_user_rule(chat_id, option):
             self.on_load_voice_button(upd=upd, context=context, option=option)
 
-    def show_options_button(self, upd: Update, context: CallbackContext):
+    def show_options_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
         send_text = utils.get_conversation_info(user)
@@ -510,18 +483,20 @@ class TelegramBotWrapper:
         )
 
     @staticmethod
-    def on_delete_pressed_button(upd: Update, context: CallbackContext):
+    def on_delete_pressed_button(upd, context):
         chat_id = upd.callback_query.message.chat.id
         message_id = upd.callback_query.message.message_id
         context.bot.deleteMessage(chat_id=chat_id, message_id=message_id)
 
-    def on_impersonate_button(self, upd: Update, context: CallbackContext, initial=False):
+    def on_impersonate_button(self, upd, context, initial=False):
         chat_id = upd.callback_query.message.chat.id
         message_id = upd.callback_query.message.message_id
         user = self.users[chat_id]
         if initial:
             context.bot.editMessageReplyMarkup(
-                chat_id=chat_id, message_id=message_id, reply_markup=self.get_options_keyboard(chat_id, user)
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
             self.clean_last_message_markup(context, chat_id)
@@ -536,13 +511,15 @@ class TelegramBotWrapper:
         user.msg_id.append(message.message_id)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_next_message_button(self, upd: Update, context: CallbackContext, initial=False):
+    def on_next_message_button(self, upd, context, initial=False):
         chat_id = upd.callback_query.message.chat.id
         message_id = upd.callback_query.message.message_id
         user = self.users[chat_id]
         if initial:
             context.bot.editMessageReplyMarkup(
-                chat_id=chat_id, message_id=message_id, reply_markup=self.get_options_keyboard(chat_id, user)
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
             self.clean_last_message_markup(context, chat_id)
@@ -557,7 +534,7 @@ class TelegramBotWrapper:
         user.msg_id.append(message.message_id)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_continue_message_button(self, upd: Update, context: CallbackContext):
+    def on_continue_message_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
         message = upd.callback_query.message
         user = self.users[chat_id]
@@ -579,7 +556,7 @@ class TelegramBotWrapper:
         user.change_last_message(history_answer=answer)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_delete_word_button(self, upd: Update, context: CallbackContext):
+    def on_delete_word_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
         answer, return_msg_action = tp.get_answer(
@@ -599,7 +576,7 @@ class TelegramBotWrapper:
             )
             user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_regenerate_message_button(self, upd: Update, context: CallbackContext):
+    def on_regenerate_message_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         user = self.users[chat_id]
@@ -621,7 +598,7 @@ class TelegramBotWrapper:
         )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_cutoff_message_button(self, upd: Update, context: CallbackContext):
+    def on_cutoff_message_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
         # Edit or delete last message ID (strict lines)
@@ -639,7 +616,7 @@ class TelegramBotWrapper:
             )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_download_json_button(self, upd: Update, context: CallbackContext):
+    def on_download_json_button(self, upd, context):
         chat_id = upd.callback_query.message.chat.id
 
         if chat_id not in self.users:
@@ -654,7 +631,7 @@ class TelegramBotWrapper:
             filename=self.users[chat_id].name2 + ".json",
         )
 
-    def on_reset_history_button(self, upd: Update, context: CallbackContext):
+    def on_reset_history_button(self, upd, context):
         # check if it is a callback_query or a command
         if upd.callback_query:
             chat_id = upd.callback_query.message.chat.id
@@ -677,7 +654,7 @@ class TelegramBotWrapper:
 
     # =============================================================================
     # switching keyboard
-    def on_load_model_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_load_model_button(self, upd, context, option: str):
         if tp.get_model_list is not None:
             model_list = tp.get_model_list()
             model_file = model_list[int(option.replace(const.BTN_MODEL_LOAD, ""))]
@@ -717,7 +694,7 @@ class TelegramBotWrapper:
                 )
                 raise e
 
-    def on_keyboard_models_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_keyboard_models_button(self, upd, context, option: str):
         if tp.get_model_list() is not None:
             chat_id = upd.callback_query.message.chat.id
             msg = upd.callback_query.message
@@ -744,7 +721,7 @@ class TelegramBotWrapper:
                 reply_markup=characters_buttons,
             )
 
-    def load_presets_button(self, upd: Update, context: CallbackContext, option: str):
+    def load_presets_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         preset_char_num = int(option.replace(const.BTN_PRESET_LOAD, ""))
         cfg.preset_file = utils.parse_presets_dir()[preset_char_num]
@@ -760,7 +737,7 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def keyboard_presets_button(self, upd: Update, context: CallbackContext, option: str):
+    def keyboard_presets_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         #  if "return character_file markup" button - clear markup
@@ -783,7 +760,7 @@ class TelegramBotWrapper:
         )
         context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
 
-    def load_character_button(self, upd: Update, context: CallbackContext, option: str):
+    def load_character_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         char_num = int(option.replace(const.BTN_CHAR_LOAD, ""))
         char_list = utils.parse_characters_dir()
@@ -804,7 +781,7 @@ class TelegramBotWrapper:
             reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
         )
 
-    def keyboard_characters_button(self, upd: Update, context: CallbackContext, option: str):
+    def keyboard_characters_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         #  if "return character_file markup" button - clear markup
@@ -829,7 +806,7 @@ class TelegramBotWrapper:
         )
         context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
 
-    def on_load_language_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_load_language_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
         lang_num = int(option.replace(const.BTN_LANG_LOAD, ""))
@@ -845,7 +822,7 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def on_keyboard_language_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_keyboard_language_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         #  if "return character_file markup" button - clear markup
@@ -868,7 +845,7 @@ class TelegramBotWrapper:
         )
         context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=lang_buttons)
 
-    def on_load_voice_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_load_voice_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         user = self.users[chat_id]
         male = Silero.voices[user.language]["male"]
@@ -887,7 +864,7 @@ class TelegramBotWrapper:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def on_keyboard_voice_button(self, upd: Update, context: CallbackContext, option: str):
+    def on_keyboard_voice_button(self, upd, context, option: str):
         chat_id = upd.callback_query.message.chat.id
         msg = upd.callback_query.message
         #  if "return character_file markup" button - clear markup
@@ -954,4 +931,5 @@ class TelegramBotWrapper:
             keyboard_tg.append([])
             for button_dict in buttons_row:
                 keyboard_tg[-1].append(InlineKeyboardButton(**button_dict))
-        return InlineKeyboardMarkup(keyboard_tg)
+        print(keyboard_tg)
+        return InlineKeyboardMarkup(inline_keyboard=keyboard_tg)

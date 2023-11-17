@@ -1,8 +1,9 @@
+import asyncio
 import os
 from threading import Thread
 
 from dotenv import load_dotenv
-from extensions.telegram_bot.main import TelegramBotWrapper
+from extensions.telegram_bot.main import AiogramLlmBot
 
 # This module added to get compatibility with text-generation-webui-telegram_bot
 
@@ -15,10 +16,9 @@ def run_server(token=""):
         token = os.environ.get("BOT_TOKEN", "")
     # create TelegramBotWrapper instance
     # by default, read parameters in telegram_config.cfg
-    tg_server = TelegramBotWrapper(config_file_path=config_file_path)
-    # by default - read token from extensions/telegram_bot/telegram_token.txt
-    tg_server.run_telegram_bot()
+    tg_server = AiogramLlmBot()
+    asyncio.run(tg_server.run_telegram_bot(token))
 
 
 def setup():
-    Thread(target=run_server, daemon=True).start()
+    run_server()
