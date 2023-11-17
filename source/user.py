@@ -212,17 +212,22 @@ class User:
                 self.turn_template = data["turn_template"]
             self.context = ""
             if "char_persona" in data:
-                self.context += f"{self.name2}'s Persona: {data['char_persona'].strip()}\n"
+                self.context += f"{self.name2}'s persona: {data['char_persona'].strip()}\n"
             if "context" in data:
-                self.context += f"{data['context'].strip()}\n"
+                if data["context"].strip() not in self.context:
+                    self.context += f"{data['context'].strip()}\n"
             if "world_scenario" in data:
-                self.context += f"Scenario: {data['world_scenario'].strip()}\n"
+                if data["world_scenario"].strip() not in self.context:
+                    self.context += f"Scenario: {data['world_scenario'].strip()}\n"
             if "scenario" in data:
-                self.context += f"Scenario: {data['scenario'].strip()}\n"
+                if data["scenario"].strip() not in self.context:
+                    self.context += f"Scenario: {data['scenario'].strip()}\n"
             if "personality" in data:
-                self.context += f"Personality: {data['personality'].strip()}\n"
+                if data["personality"].strip() not in self.context:
+                    self.context += f"Personality: {data['personality'].strip()}\n"
             if "description" in data:
-                self.context += f"Description: {data['description'].strip()}\n"
+                if data["description"].strip() not in self.context:
+                    self.context += f"Description: {data['description'].strip()}\n"
             #  add dialogue examples
             if "example_dialogue" in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
