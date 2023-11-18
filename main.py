@@ -1,22 +1,23 @@
-import io
 import json
 import logging
 import time
 from os.path import exists, normpath
 from os import remove
 from pathlib import Path
-from threading import Thread, Event
-from typing import Dict, List
+from threading import Event
+from typing import Dict
 
 import backoff
 import urllib3
 from aiogram import Bot, types
-from aiogram.types import Message
-from aiogram.methods import SendMessage, SendPhoto, SendAudio
+from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.dispatcher import Dispatcher
 from aiogram.filters.command import Command
-from aiogram.types.input_file import InputFile
+from aiogram.filters.magic_data import Filter, MagicFilter
+from aiogram.types.input_file import InputFile, BufferedInputFile
+from aiogram.types.input_media_audio import InputMediaAudio
+from aiogram.client.session.aiohttp import AiohttpSession
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,9 +44,7 @@ except ImportError:
 
 class AiogramLlmBot:
     # Set dummy obj for telegram updater
-    # Объект бота
     bot: Bot = None
-    # Диспетчер
     dp: Dispatcher = Dispatcher()
     # dict of User data dicts, here stored all users' session info.
     users: Dict[int, User] = {}
@@ -91,16 +90,18 @@ class AiogramLlmBot:
         :param token_file_name: (str) The name of the file containing the bot token. Default is `None`.
         :return: None
         """
-        request_kwargs = {
-            "proxy_url": cfg.proxy_url,
-        }
         if not bot_token:
             token_file_name = token_file_name or cfg.token_file_path
             with open(normpath(token_file_name), "r", encoding="utf-8") as f:
                 bot_token = f.read().strip()
-        self.bot = Bot(token=bot_token)
+        if cfg.proxy_url:
+            session = AiohttpSession(proxy="protocol://host:port/")
+        else:
+            session = None
+        self.bot = Bot(token=bot_token, session=session)
         self.dp = Dispatcher()
         self.dp.message.register(self.thread_welcome_message, Command("start"))
+        self.dp.message.register(self.thread_get_json_document)
         self.dp.message.register(self.thread_get_message)
         self.dp.callback_query.register(self.thread_push_button)
         await self.dp.start_polling(self.bot)
@@ -149,22 +150,27 @@ class AiogramLlmBot:
     # =============================================================================
     # Work with history! Init/load/save functions
 
-    def thread_get_json_document(self, upd, context):
-        chat_id = upd.message.chat.id
+    async def thread_get_json_document(self, message: Message):
+        if message.document is None:
+            return
+        chat_id = message.chat.id
         user = self.users[chat_id]
         if not utils.check_user_permission(chat_id):
             return False
         utils.init_check_user(self.users, chat_id)
         default_user_file_path = str(Path(f"{cfg.history_dir_path}/{str(chat_id)}.json"))
-        with open(normpath(default_user_file_path), "wb") as f:
-            context.bot.get_file(upd.message.document.file_id).download(out=f)
+        if document := message.document:
+            await document.download(
+                destination_dir=str(Path(f"{cfg.history_dir_path}")),
+                destination_file=str(Path(f"{chat_id}.json")),
+            )
         user.load_user_history(default_user_file_path)
         if len(user.history) > 0:
             last_message = user.history[-1]["out"]
         else:
             last_message = "<no message in history>"
         send_text = self.make_template_message("hist_loaded", chat_id, last_message)
-        context.bot.send_message(
+        await self.bot.send_message(
             chat_id=chat_id,
             text=send_text,
             reply_markup=self.get_initial_keyboard(chat_id, user),
@@ -189,8 +195,8 @@ class AiogramLlmBot:
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def send_sd_image(self, upd, context, answer: str, user_text: str):
-        chat_id = upd.message.chat.id
+    def send_sd_image(self, message, answer: str, user_text: str):
+        chat_id = message.chat.id
         try:
             file_list = self.SdApi.txt_to_image(answer)
             answer = answer.replace(cfg.sd_api_prompt_of.replace("OBJECT", user_text[1:].strip()), "")
@@ -201,23 +207,22 @@ class AiogramLlmBot:
             if len(file_list) > 0:
                 for image_path in file_list:
                     if exists(image_path):
-                        with open(normpath(image_path), "rb") as image_file:
-                            context.bot.send_photo(caption=answer, chat_id=chat_id, photo=image_file)
+                        self.bot.send_photo(caption=answer, chat_id=chat_id, photo=InputFile(image_path))
                         remove(image_path)
         except Exception as e:
             logging.error("send_sd_image: " + str(e))
-            context.bot.send_message(text=answer, chat_id=chat_id)
+            self.bot.send_message(text=answer, chat_id=chat_id)
 
     @backoff.on_exception(
         backoff.expo,
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def clean_last_message_markup(self, context, chat_id: int):
+    def clean_last_message_markup(self, chat_id: int):
         if chat_id in self.users and len(self.users[chat_id].msg_id) > 0:
             last_msg = self.users[chat_id].msg_id[-1]
             try:
-                context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=last_msg)
+                self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=last_msg)
             except Exception as exception:
                 logging.info("last_message_markup_clean: " + str(exception))
 
@@ -264,46 +269,38 @@ class AiogramLlmBot:
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def edit_message(
+    async def edit_message(
         self,
-        context,
-        upd,
+        cbq,
         chat_id: int,
         text: str,
         message_id: int,
     ):
         user = self.users[chat_id]
         text = utils.prepare_text(text, user, "to_user")
-        if upd.callback_query.message.text is not None:
-            context.bot.editMessageText(
+        if cbq.message.text is not None:
+            await self.bot.edit_message_text(
                 text=text,
                 chat_id=chat_id,
                 parse_mode="HTML",
                 message_id=message_id,
                 reply_markup=self.get_chat_keyboard(),
             )
-        if (
-            upd.callback_query.message.audio is not None
-            and user.silero_speaker != "None"
-            and user.silero_model_id != "None"
-        ):
+        if cbq.message.audio is not None and user.silero_speaker != "None" and user.silero_model_id != "None":
             if ":" in text:
                 audio_text = ":".join(text.split(":")[1:])
             else:
                 audio_text = text
             audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
-                with open(normpath(audio_path), "rb") as audio:
-                    # media = InputMediaAudio(media=audio, filename=f"{user.name2}_to_{user.name1}.wav")
-                    media = None
-                    context.bot.edit_message_media(
-                        chat_id=chat_id,
-                        media=media,
-                        message_id=message_id,
-                        reply_markup=self.get_chat_keyboard(),
-                    )
-        if upd.callback_query.message.caption is not None:
-            context.bot.editMessageCaption(
+                await self.bot.edit_message_media(
+                    chat_id=chat_id,
+                    media=InputMediaAudio(media=normpath(audio_path)),
+                    message_id=message_id,
+                    reply_markup=self.get_chat_keyboard(),
+                )
+        if cbq.message.caption is not None:
+            await self.bot.edit_message_caption(
                 chat_id=chat_id,
                 caption=text,
                 parse_mode="HTML",
@@ -364,15 +361,14 @@ class AiogramLlmBot:
                 await message.reply(text=answer)
             elif system_message == const.MSG_SD_API:
                 user.truncate_last_message()
-                # self.send_sd_image(upd, context, answer, user_text)
+                self.send_sd_image(message, answer, user_text)
             else:
                 if system_message == const.MSG_DEL_LAST:
                     await message.delete()
                 # message = self.send_message(text=answer, chat_id=chat_id, context=context)
                 reply = await self.send_message(text=answer, chat_id=chat_id)
-                # reply = await message.reply(text=answer)
                 # Clear buttons on last message (if they exist in current thread)
-                # self.clean_last_message_markup(context, chat_id)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.clean_last_message_markup(chat_id)
                 # Add message ID to message history
                 user.msg_id.append(reply.message_id)
                 # Save user history
@@ -415,7 +411,7 @@ class AiogramLlmBot:
                     if msg_id != self.users[chat_id].msg_id[-1]:
                         await cbq.message.edit_reply_markup(reply_markup=None)
                         return
-            self.handle_button_option(option, chat_id, cbq)
+            await self.handle_button_option(option, chat_id, cbq)
             self.users[chat_id].save_user_history(chat_id, cfg.history_dir_path)
         except Exception as e:
             logging.error("thread_push_button " + str(e) + str(e.args))
@@ -423,120 +419,117 @@ class AiogramLlmBot:
             pass
             # typing.clear()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    def handle_button_option(self, option, chat_id, cbq: types.CallbackQuery):
-        context = None
-        upd = None
+    async def handle_button_option(self, option, chat_id, cbq: types.CallbackQuery):
         if option == const.BTN_RESET and utils.check_user_rule(chat_id, option):
-            self.on_reset_history_button(upd=upd, context=context)
+            await self.on_reset_history_button(cbq)
         elif option == const.BTN_CONTINUE and utils.check_user_rule(chat_id, option):
-            self.on_continue_message_button(upd=upd, context=context)
+            await self.on_continue_message_button(cbq)
         elif option == const.BTN_IMPERSONATE and utils.check_user_rule(chat_id, option):
-            self.on_impersonate_button(upd=upd, context=context)
+            await self.on_impersonate_button(cbq)
         elif option == const.BTN_NEXT and utils.check_user_rule(chat_id, option):
-            self.on_next_message_button(upd=upd, context=context)
+            await self.on_next_message_button(cbq)
         elif option == const.BTN_IMPERSONATE_INIT and utils.check_user_rule(chat_id, option):
-            self.on_impersonate_button(upd=upd, context=context, initial=True)
+            await self.on_impersonate_button(cbq, initial=True)
         elif option == const.BTN_NEXT_INIT and utils.check_user_rule(chat_id, option):
-            self.on_next_message_button(upd=upd, context=context, initial=True)
+            await self.on_next_message_button(cbq, initial=True)
         elif option == const.BTN_DEL_WORD and utils.check_user_rule(chat_id, option):
-            self.on_delete_word_button(upd=upd, context=context)
+            await self.on_delete_word_button(cbq)
         elif option == const.BTN_REGEN and utils.check_user_rule(chat_id, option):
-            self.on_regenerate_message_button(upd=upd, context=context)
+            await self.on_regenerate_message_button(cbq)
         elif option == const.BTN_CUTOFF and utils.check_user_rule(chat_id, option):
-            self.on_cutoff_message_button(upd=upd, context=context)
+            await self.on_cutoff_message_button(cbq)
         elif option == const.BTN_DOWNLOAD and utils.check_user_rule(chat_id, option):
-            self.on_download_json_button(upd=upd, context=context)
+            await self.on_download_json_button(cbq)
         elif option == const.BTN_OPTION and utils.check_user_rule(chat_id, option):
-            self.show_options_button(upd=upd, context=context)
+            await self.show_options_button(cbq)
         elif option == const.BTN_DELETE and utils.check_user_rule(chat_id, option):
-            self.on_delete_pressed_button(upd=upd, context=context)
+            await self.on_delete_pressed_button(cbq)
         elif option.startswith(const.BTN_CHAR_LIST) and utils.check_user_rule(chat_id, option):
-            self.keyboard_characters_button(upd=upd, context=context, option=option)
+            await self.keyboard_characters_button(cbq, option=option)
         elif option.startswith(const.BTN_CHAR_LOAD) and utils.check_user_rule(chat_id, option):
-            self.load_character_button(upd=upd, context=context, option=option)
+            await self.load_character_button(cbq, option=option)
         elif option.startswith(const.BTN_PRESET_LIST) and utils.check_user_rule(chat_id, option):
-            self.keyboard_presets_button(upd=upd, context=context, option=option)
+            await self.keyboard_presets_button(cbq, option=option)
         elif option.startswith(const.BTN_PRESET_LOAD) and utils.check_user_rule(chat_id, option):
-            self.load_presets_button(upd=upd, context=context, option=option)
+            await self.load_presets_button(cbq, option=option)
         elif option.startswith(const.BTN_MODEL_LIST) and utils.check_user_rule(chat_id, option):
-            self.on_keyboard_models_button(upd=upd, context=context, option=option)
+            await self.on_keyboard_models_button(cbq, option=option)
         elif option.startswith(const.BTN_MODEL_LOAD) and utils.check_user_rule(chat_id, option):
-            self.on_load_model_button(upd=upd, context=context, option=option)
+            await self.on_load_model_button(cbq, option=option)
         elif option.startswith(const.BTN_LANG_LIST) and utils.check_user_rule(chat_id, option):
-            self.on_keyboard_language_button(upd=upd, context=context, option=option)
+            await self.on_keyboard_language_button(cbq, option=option)
         elif option.startswith(const.BTN_LANG_LOAD) and utils.check_user_rule(chat_id, option):
-            self.on_load_language_button(upd=upd, context=context, option=option)
+            await self.on_load_language_button(cbq, option=option)
         elif option.startswith(const.BTN_VOICE_LIST) and utils.check_user_rule(chat_id, option):
-            self.on_keyboard_voice_button(upd=upd, context=context, option=option)
+            await self.on_keyboard_voice_button(cbq, option=option)
         elif option.startswith(const.BTN_VOICE_LOAD) and utils.check_user_rule(chat_id, option):
-            self.on_load_voice_button(upd=upd, context=context, option=option)
+            await self.on_load_voice_button(cbq, option=option)
 
-    def show_options_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
+    async def show_options_button(self, cbq: CallbackQuery):
+        chat_id = cbq.message.chat.id
         user = self.users[chat_id]
         send_text = utils.get_conversation_info(user)
-        context.bot.send_message(
+        await self.bot.send_message(
             text=send_text,
             chat_id=chat_id,
             reply_markup=self.get_options_keyboard(chat_id, user),
             parse_mode="HTML",
         )
 
-    @staticmethod
-    def on_delete_pressed_button(upd, context):
-        chat_id = upd.callback_query.message.chat.id
-        message_id = upd.callback_query.message.message_id
-        context.bot.deleteMessage(chat_id=chat_id, message_id=message_id)
+    async def on_delete_pressed_button(self, cbq):
+        chat_id = cbq.message.chat.id
+        message_id = cbq.message.message_id
+        await self.bot.delete_message(chat_id=chat_id, message_id=message_id)
 
-    def on_impersonate_button(self, upd, context, initial=False):
-        chat_id = upd.callback_query.message.chat.id
-        message_id = upd.callback_query.message.message_id
+    async def on_impersonate_button(self, cbq, initial=False):
+        chat_id = cbq.message.chat.id
+        message_id = cbq.message.message_id
         user = self.users[chat_id]
         if initial:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=message_id,
                 reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
-            self.clean_last_message_markup(context, chat_id)
+            self.clean_last_message_markup(chat_id)
         answer, _ = tp.get_answer(
             text_in=const.GENERATOR_MODE_IMPERSONATE,
             user=user,
             bot_mode=cfg.bot_mode,
             generation_params=cfg.generation_params,
-            name_in=self.get_user_profile_name(upd),
+            name_in=self.get_user_profile_name(cbq),
         )
-        message = self.send_message(text=answer, chat_id=chat_id, context=context)
+        message = await self.send_message(text=answer, chat_id=chat_id)
         user.msg_id.append(message.message_id)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_next_message_button(self, upd, context, initial=False):
-        chat_id = upd.callback_query.message.chat.id
-        message_id = upd.callback_query.message.message_id
+    async def on_next_message_button(self, cbq, initial=False):
+        chat_id = cbq.message.chat.id
+        message_id = cbq.message.message_id
         user = self.users[chat_id]
         if initial:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=message_id,
                 reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
-            self.clean_last_message_markup(context, chat_id)
+            self.clean_last_message_markup(chat_id)
         answer, _ = tp.get_answer(
             text_in=const.GENERATOR_MODE_NEXT,
             user=user,
             bot_mode=cfg.bot_mode,
             generation_params=cfg.generation_params,
-            name_in=self.get_user_profile_name(upd),
+            name_in=self.get_user_profile_name(cbq),
         )
-        message = self.send_message(text=answer, chat_id=chat_id, context=context)
+        message = await self.send_message(text=answer, chat_id=chat_id)
         user.msg_id.append(message.message_id)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_continue_message_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
-        message = upd.callback_query.message
+    async def on_continue_message_button(self, cbq):
+        chat_id = cbq.message.chat.id
+        message = cbq.message
         user = self.users[chat_id]
         # get answer and replace message text!
         answer, _ = tp.get_answer(
@@ -544,108 +537,103 @@ class AiogramLlmBot:
             user=user,
             bot_mode=cfg.bot_mode,
             generation_params=cfg.generation_params,
-            name_in=self.get_user_profile_name(upd),
+            name_in=self.get_user_profile_name(cbq),
         )
-        self.edit_message(
+        await self.edit_message(
             text=answer,
             chat_id=chat_id,
             message_id=message.message_id,
-            context=context,
-            upd=upd,
         )
         user.change_last_message(history_answer=answer)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_delete_word_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
+    async def on_delete_word_button(self, cbq):
+        chat_id = cbq.message.chat.id
         user = self.users[chat_id]
         answer, return_msg_action = tp.get_answer(
             text_in=const.GENERATOR_MODE_DEL_WORD,
             user=user,
             bot_mode=cfg.bot_mode,
             generation_params=cfg.generation_params,
-            name_in=self.get_user_profile_name(upd),
+            name_in=self.get_user_profile_name(cbq),
         )
         if return_msg_action != const.MSG_NOTHING_TO_DO:
-            self.edit_message(
+            await self.edit_message(
                 text=answer,
                 chat_id=chat_id,
                 message_id=user.msg_id[-1],
-                context=context,
-                upd=upd,
+                cbq=cbq,
             )
             user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_regenerate_message_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
+    async def on_regenerate_message_button(self, cbq):
+        chat_id = cbq.message.chat.id
+        msg = cbq.message
         user = self.users[chat_id]
-        self.clean_last_message_markup(context, chat_id)
+        self.clean_last_message_markup(chat_id)
         # get answer and replace message text!
         answer, _ = tp.get_answer(
             text_in=const.GENERATOR_MODE_REGENERATE,
             user=user,
             bot_mode=cfg.bot_mode,
             generation_params=cfg.generation_params,
-            name_in=self.get_user_profile_name(upd),
+            name_in=self.get_user_profile_name(cbq),
         )
-        self.edit_message(
+        await self.edit_message(
             text=answer,
             chat_id=chat_id,
             message_id=msg.message_id,
-            context=context,
-            upd=upd,
+            cbq=cbq,
         )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_cutoff_message_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
+    async def on_cutoff_message_button(self, cbq):
+        chat_id = cbq.message.chat.id
         user = self.users[chat_id]
         # Edit or delete last message ID (strict lines)
         last_msg_id = user.msg_id[-1]
-        context.bot.deleteMessage(chat_id=chat_id, message_id=last_msg_id)
+        await self.bot.delete_message(chat_id=chat_id, message_id=last_msg_id)
         # Remove last message and bot answer from history
         user.truncate_last_message()
         # If there is previous message - add buttons to previous message
         if user.msg_id:
             message_id = user.msg_id[-1]
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=message_id,
                 reply_markup=self.get_chat_keyboard(),
             )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
-    def on_download_json_button(self, upd, context):
-        chat_id = upd.callback_query.message.chat.id
+    async def on_download_json_button(self, cbq):
+        chat_id = cbq.message.chat.id
 
         if chat_id not in self.users:
             return
 
-        user_file = io.StringIO(self.users[chat_id].to_json())
+        json_file = self.users[chat_id].to_json()
         send_caption = self.make_template_message("hist_to_chat", chat_id)
-        context.bot.send_document(
+        await self.bot.send_document(
             chat_id=chat_id,
             caption=send_caption,
-            document=user_file,
-            filename=self.users[chat_id].name2 + ".json",
+            document=BufferedInputFile(file=bytes(json_file), filename=self.users[chat_id].name2 + ".json"),
         )
 
-    def on_reset_history_button(self, upd, context):
+    async def on_reset_history_button(self, cbq):
         # check if it is a callback_query or a command
-        if upd.callback_query:
-            chat_id = upd.callback_query.message.chat.id
+        if cbq:
+            chat_id = cbq.message.chat.id
         else:
-            chat_id = upd.message.chat.id
+            chat_id = cbq.chat.id
         if chat_id not in self.users:
             return
         user = self.users[chat_id]
         if user.msg_id:
-            self.clean_last_message_markup(context, chat_id)
+            self.clean_last_message_markup(chat_id)
         user.reset()
         user.load_character_file(cfg.characters_dir_path, user.char_file)
         send_text = self.make_template_message("mem_reset", chat_id)
-        context.bot.send_message(
+        await self.bot.send_message(
             chat_id=chat_id,
             text=send_text,
             reply_markup=self.get_initial_keyboard(chat_id, user),
@@ -654,14 +642,14 @@ class AiogramLlmBot:
 
     # =============================================================================
     # switching keyboard
-    def on_load_model_button(self, upd, context, option: str):
+    async def on_load_model_button(self, cbq, option: str):
         if tp.get_model_list is not None:
             model_list = tp.get_model_list()
             model_file = model_list[int(option.replace(const.BTN_MODEL_LOAD, ""))]
-            chat_id = upd.effective_chat.id
+            chat_id = cbq.effective_chat.id
             send_text = "Loading " + model_file + ". 🪄"
-            message_id = upd.callback_query.message.message_id
-            context.bot.editMessageText(
+            message_id = cbq.message.message_id
+            await self.bot.edit_message_text(
                 text=send_text,
                 chat_id=chat_id,
                 message_id=message_id,
@@ -672,7 +660,7 @@ class AiogramLlmBot:
                 send_text = self.make_template_message(
                     request="model_loaded", chat_id=chat_id, custom_string=model_file
                 )
-                context.bot.editMessageText(
+                await self.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=message_id,
                     text=send_text,
@@ -683,7 +671,7 @@ class AiogramLlmBot:
                 )
             except Exception as e:
                 logging.error("model button error: " + str(e))
-                context.bot.editMessageText(
+                await self.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=message_id,
                     text="Error during " + model_file + " loading. ⛔",
@@ -694,13 +682,13 @@ class AiogramLlmBot:
                 )
                 raise e
 
-    def on_keyboard_models_button(self, upd, context, option: str):
+    async def on_keyboard_models_button(self, cbq, option: str):
         if tp.get_model_list() is not None:
-            chat_id = upd.callback_query.message.chat.id
-            msg = upd.callback_query.message
+            chat_id = cbq.message.chat.id
+            msg = cbq.message
             model_list = tp.get_model_list()
             if option == const.BTN_MODEL_LIST + const.BTN_OPTION:
-                context.bot.editMessageReplyMarkup(
+                await self.bot.edit_message_reply_markup(
                     chat_id=chat_id,
                     message_id=msg.message_id,
                     reply_markup=self.get_options_keyboard(
@@ -715,21 +703,21 @@ class AiogramLlmBot:
                 data_list=const.BTN_MODEL_LIST,
                 data_load=const.BTN_MODEL_LOAD,
             )
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 reply_markup=characters_buttons,
             )
 
-    def load_presets_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
+    async def load_presets_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
         preset_char_num = int(option.replace(const.BTN_PRESET_LOAD, ""))
         cfg.preset_file = utils.parse_presets_dir()[preset_char_num]
         cfg.load_preset(preset_file=cfg.preset_file)
         user = self.users[chat_id]
         send_text = utils.get_conversation_info(user)
-        message_id = upd.callback_query.message.message_id
-        context.bot.editMessageText(
+        message_id = cbq.message.message_id
+        await self.bot.edit_message_text(
             text=send_text,
             message_id=message_id,
             chat_id=chat_id,
@@ -737,12 +725,12 @@ class AiogramLlmBot:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def keyboard_presets_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
+    async def keyboard_presets_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
+        msg = cbq.message
         #  if "return character_file markup" button - clear markup
         if option == const.BTN_PRESET_LIST + const.BTN_OPTION:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
@@ -758,13 +746,15 @@ class AiogramLlmBot:
             data_load=const.BTN_PRESET_LOAD,
             keyboard_column=3,
         )
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
+        await self.bot.edit_message_reply_markup(
+            chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons
+        )
 
-    def load_character_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
+    async def load_character_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
         char_num = int(option.replace(const.BTN_CHAR_LOAD, ""))
         char_list = utils.parse_characters_dir()
-        self.clean_last_message_markup(context, chat_id)
+        self.clean_last_message_markup(chat_id)
         utils.init_check_user(self.users, chat_id)
         char_file = char_list[char_num]
         self.users[chat_id].load_character_file(characters_dir_path=cfg.characters_dir_path, char_file=char_file)
@@ -774,19 +764,19 @@ class AiogramLlmBot:
             send_text = self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1]["out"])
         else:
             send_text = self.make_template_message("char_loaded", chat_id)
-        context.bot.send_message(
+        await self.bot.send_message(
             text=send_text,
             chat_id=chat_id,
             parse_mode="HTML",
             reply_markup=self.get_initial_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
         )
 
-    def keyboard_characters_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
+    async def keyboard_characters_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
+        msg = cbq.message
         #  if "return character_file markup" button - clear markup
         if option == const.BTN_CHAR_LIST + const.BTN_OPTION:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
@@ -804,17 +794,19 @@ class AiogramLlmBot:
             data_list=const.BTN_CHAR_LIST,
             data_load=const.BTN_CHAR_LOAD,
         )
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons)
+        await self.bot.edit_message_reply_markup(
+            chat_id=chat_id, message_id=msg.message_id, reply_markup=characters_buttons
+        )
 
-    def on_load_language_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
+    async def on_load_language_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
+        message_id = cbq.message.message_id
         user = self.users[chat_id]
         lang_num = int(option.replace(const.BTN_LANG_LOAD, ""))
         language = list(cfg.language_dict.keys())[lang_num]
         self.users[chat_id].language = language
         send_text = utils.get_conversation_info(user)
-        message_id = upd.callback_query.message.message_id
-        context.bot.editMessageText(
+        await self.bot.edit_message_text(
             text=send_text,
             message_id=message_id,
             chat_id=chat_id,
@@ -822,12 +814,12 @@ class AiogramLlmBot:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def on_keyboard_language_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
+    async def on_keyboard_language_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
+        msg = cbq.message
         #  if "return character_file markup" button - clear markup
         if option == const.BTN_LANG_LIST + const.BTN_OPTION:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
@@ -843,10 +835,10 @@ class AiogramLlmBot:
             data_load=const.BTN_LANG_LOAD,
             keyboard_column=4,
         )
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=lang_buttons)
+        await self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=msg.message_id, reply_markup=lang_buttons)
 
-    def on_load_voice_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
+    async def on_load_voice_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
         user = self.users[chat_id]
         male = Silero.voices[user.language]["male"]
         female = Silero.voices[user.language]["female"]
@@ -855,8 +847,8 @@ class AiogramLlmBot:
         user.silero_speaker = voice_dict[voice_num]
         user.silero_model_id = Silero.voices[user.language]["model"]
         send_text = utils.get_conversation_info(user)
-        message_id = upd.callback_query.message.message_id
-        context.bot.editMessageText(
+        message_id = cbq.message.message_id
+        await self.bot.edit_message_text(
             text=send_text,
             message_id=message_id,
             chat_id=chat_id,
@@ -864,12 +856,12 @@ class AiogramLlmBot:
             reply_markup=self.get_options_keyboard(chat_id, user),
         )
 
-    def on_keyboard_voice_button(self, upd, context, option: str):
-        chat_id = upd.callback_query.message.chat.id
-        msg = upd.callback_query.message
+    async def on_keyboard_voice_button(self, cbq, option: str):
+        chat_id = cbq.message.chat.id
+        msg = cbq.message
         #  if "return character_file markup" button - clear markup
         if option == const.BTN_VOICE_LIST + const.BTN_OPTION:
-            context.bot.editMessageReplyMarkup(
+            await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=msg.message_id,
                 reply_markup=self.get_options_keyboard(chat_id, self.users[chat_id] if chat_id in self.users else None),
@@ -889,7 +881,7 @@ class AiogramLlmBot:
             data_load=const.BTN_VOICE_LOAD,
             keyboard_column=4,
         )
-        context.bot.editMessageReplyMarkup(chat_id=chat_id, message_id=msg.message_id, reply_markup=voice_buttons)
+        await self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=msg.message_id, reply_markup=voice_buttons)
 
     # =============================================================================
     # load characters char_file from ./characters
