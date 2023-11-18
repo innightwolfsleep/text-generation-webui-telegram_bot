@@ -50,12 +50,13 @@ def get_options_keyboard(chat_id, user: User):
     if utils.check_user_rule(chat_id, const.BTN_MODEL_LIST) and tp.generator.model_change_allowed:
         keyboard_raw.append({"text": "🔨Model", "callback_data": const.BTN_MODEL_LIST + "0"})
     if utils.check_user_rule(chat_id, const.BTN_DELETE):
-        keyboard_raw.append({"text": "❌Close", "callback_data": const.BTN_DELETE})
+        keyboard_raw.append({"text": "❌Delete", "callback_data": const.BTN_DELETE})
     return [keyboard_raw]
 
 
 def get_chat_keyboard(chat_id=0):
     keyboard_raw = []
+
     if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
         keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE})
     if utils.check_user_rule(chat_id, const.BTN_NEXT):
@@ -66,10 +67,10 @@ def get_chat_keyboard(chat_id=0):
         keyboard_raw.append({"text": "⬅Del sentence", "callback_data": const.BTN_DEL_WORD})
     if utils.check_user_rule(chat_id, const.BTN_REGEN):
         keyboard_raw.append({"text": "♻Regenerate", "callback_data": const.BTN_REGEN})
-    if utils.check_user_rule(chat_id, const.BTN_CUTOFF):
-        keyboard_raw.append({"text": "✂️Cutoff", "callback_data": const.BTN_CUTOFF})
     if utils.check_user_rule(chat_id, const.BTN_OPTION):
         keyboard_raw.append({"text": "⚙Options", "callback_data": const.BTN_OPTION})
+    if utils.check_user_rule(chat_id, const.BTN_CUTOFF):
+        keyboard_raw.append({"text": "❌Delete", "callback_data": const.BTN_CUTOFF})
     return [keyboard_raw]
 
 
