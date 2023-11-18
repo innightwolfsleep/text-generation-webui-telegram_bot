@@ -1,10 +1,11 @@
 import json
 import logging
 import time
+import asyncio
 from os.path import exists, normpath
 from os import remove
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from typing import Dict
 
 import backoff
@@ -14,7 +15,6 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.dispatcher import Dispatcher
 from aiogram.filters.command import Command
-from aiogram.filters.magic_data import Filter, MagicFilter
 from aiogram.types.input_file import InputFile, BufferedInputFile
 from aiogram.types.input_media_audio import InputMediaAudio
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -101,8 +101,8 @@ class AiogramLlmBot:
         self.bot = Bot(token=bot_token, session=session)
         self.dp = Dispatcher()
         self.dp.message.register(self.thread_welcome_message, Command("start"))
-        self.dp.message.register(self.thread_get_json_document)
         self.dp.message.register(self.thread_get_message)
+        self.dp.message.register(self.thread_get_json_document)
         self.dp.callback_query.register(self.thread_push_button)
         await self.dp.start_polling(self.bot)
 
@@ -178,15 +178,20 @@ class AiogramLlmBot:
         )
 
     async def start_send_typing_status(self, chat_id: int) -> Event:
+        print("start_send_typing_status")
         typing_active = Event()
         typing_active.set()
-        await self.thread_typing_status(chat_id, typing_active)
+        Thread(target=self.thread_typing_status, args=(chat_id, typing_active)).start()
+        print("start_send_typing_status2")
+        # asyncio.run(tg_server.run_telegram_bot(token))
+        # await self.thread_typing_status(chat_id, typing_active)
         return typing_active
 
     async def thread_typing_status(self, chat_id: int, typing_active: Event):
+        print("thread_typing_status")
         limit_counter = int(cfg.generation_timeout / 5)
         while typing_active.is_set() and limit_counter > 0:
-            await self.bot.send_chat_action(chat_id=chat_id, action="typing")
+            asyncio.run(self.bot.send_chat_action(chat_id=chat_id, action="typing"))
             time.sleep(5)
             limit_counter -= 1
 
@@ -326,7 +331,7 @@ class AiogramLlmBot:
         )
 
     async def thread_get_message(self, message: types.Message):
-        print("thread_get_message", message)
+        print("thread_get_message")
         # Extract user input and chat ID
         user_text = message.text
         chat_id = message.chat.id
@@ -343,14 +348,15 @@ class AiogramLlmBot:
             else:
                 return
         # Send "typing" message
-        # typing = self.start_send_typing_status(chat_id)
+        # typing = await self.start_send_typing_status(chat_id)
         try:
             if utils.check_user_rule(chat_id=chat_id, option=const.GET_MESSAGE) is not True:
                 return False
             # Generate answer and replace "typing" message with it
             if not user_text.startswith(tuple(cfg.sd_api_prefixes)):
                 user_text = utils.prepare_text(user_text, user, "to_model")
-            answer, system_message = tp.get_answer(
+            print("tp.async_get_answer")
+            answer, system_message = await tp.aget_answer(
                 text_in=user_text,
                 user=user,
                 bot_mode=cfg.bot_mode,
@@ -388,7 +394,8 @@ class AiogramLlmBot:
         if not utils.check_user_permission(chat_id):
             return False
         # Send "typing" message
-        # typing = self.start_send_typing_status(context, chat_id)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        typing = await self.start_send_typing_status(chat_id)
+        await self.bot.answer_callback_query(cbq.id)
         try:
             # if new user - init
             utils.init_check_user(self.users, chat_id)
@@ -416,7 +423,7 @@ class AiogramLlmBot:
             logging.error("thread_push_button " + str(e) + str(e.args))
         finally:
             pass
-            # typing.clear()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            typing.clear()
 
     async def handle_button_option(self, option, chat_id, cbq: types.CallbackQuery):
         if option == const.BTN_RESET and utils.check_user_rule(chat_id, option):
@@ -492,7 +499,7 @@ class AiogramLlmBot:
             )
         else:
             self.clean_last_message_markup(chat_id)
-        answer, _ = tp.get_answer(
+        answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_IMPERSONATE,
             user=user,
             bot_mode=cfg.bot_mode,
@@ -515,7 +522,7 @@ class AiogramLlmBot:
             )
         else:
             self.clean_last_message_markup(chat_id)
-        answer, _ = tp.get_answer(
+        answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_NEXT,
             user=user,
             bot_mode=cfg.bot_mode,
@@ -531,7 +538,7 @@ class AiogramLlmBot:
         message = cbq.message
         user = self.users[chat_id]
         # get answer and replace message text!
-        answer, _ = tp.get_answer(
+        answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_CONTINUE,
             user=user,
             bot_mode=cfg.bot_mode,
@@ -549,7 +556,7 @@ class AiogramLlmBot:
     async def on_delete_word_button(self, cbq):
         chat_id = cbq.message.chat.id
         user = self.users[chat_id]
-        answer, return_msg_action = tp.get_answer(
+        answer, return_msg_action = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_DEL_WORD,
             user=user,
             bot_mode=cfg.bot_mode,
@@ -571,7 +578,7 @@ class AiogramLlmBot:
         user = self.users[chat_id]
         self.clean_last_message_markup(chat_id)
         # get answer and replace message text!
-        answer, _ = tp.get_answer(
+        answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_REGENERATE,
             user=user,
             bot_mode=cfg.bot_mode,
@@ -922,5 +929,4 @@ class AiogramLlmBot:
             keyboard_tg.append([])
             for button_dict in buttons_row:
                 keyboard_tg[-1].append(InlineKeyboardButton(**button_dict))
-        print(keyboard_tg)
         return InlineKeyboardMarkup(inline_keyboard=keyboard_tg)

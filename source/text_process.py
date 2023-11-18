@@ -1,5 +1,8 @@
 import importlib
 import logging
+import asyncio
+
+from functools import wraps, partial
 from re import split, sub
 from threading import Lock
 from time import sleep
@@ -29,6 +32,24 @@ debug_flag = True
 
 # ====================================================================================
 # TEXT LOGIC
+
+
+async def aget_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in="") -> Tuple[str, str]:
+    return await get_answer(text_in, user, bot_mode, generation_params, name_in)
+
+
+def wrap(func):
+    @wraps(func)
+    async def run(*args, loop=None, executor=None, **kwargs):
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        pfunc = partial(func, *args, **kwargs)
+        return await loop.run_in_executor(executor, pfunc)
+
+    return run
+
+
+@wrap
 def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in="") -> Tuple[str, str]:
     # additional delay option
     if cfg.answer_delay > 0:
