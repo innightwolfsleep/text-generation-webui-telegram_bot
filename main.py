@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 import asyncio
 from os.path import exists, normpath
 from os import remove
@@ -181,18 +180,14 @@ class AiogramLlmBot:
         print("start_send_typing_status")
         typing_active = Event()
         typing_active.set()
-        Thread(target=self.thread_typing_status, args=(chat_id, typing_active)).start()
-        print("start_send_typing_status2")
-        # asyncio.run(tg_server.run_telegram_bot(token))
-        # await self.thread_typing_status(chat_id, typing_active)
+        asyncio.create_task(self.thread_typing_status(chat_id, typing_active))
         return typing_active
 
     async def thread_typing_status(self, chat_id: int, typing_active: Event):
-        print("thread_typing_status")
         limit_counter = int(cfg.generation_timeout / 5)
         while typing_active.is_set() and limit_counter > 0:
-            asyncio.run(self.bot.send_chat_action(chat_id=chat_id, action="typing"))
-            time.sleep(5)
+            await self.bot.send_chat_action(chat_id=chat_id, action="typing")
+            await asyncio.sleep(5)
             limit_counter -= 1
 
     @backoff.on_exception(
@@ -348,7 +343,7 @@ class AiogramLlmBot:
             else:
                 return
         # Send "typing" message
-        # typing = await self.start_send_typing_status(chat_id)
+        typing = await self.start_send_typing_status(chat_id)
         try:
             if utils.check_user_rule(chat_id=chat_id, option=const.GET_MESSAGE) is not True:
                 return False
@@ -383,7 +378,7 @@ class AiogramLlmBot:
             logging.error("thread_get_message" + str(e) + str(e.args))
         finally:
             pass
-            # typing.clear()
+            typing.clear()
 
     # =============================================================================
     # button
