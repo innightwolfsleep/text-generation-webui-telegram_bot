@@ -154,16 +154,16 @@ class AiogramLlmBot:
         if message.document is None:
             return
         chat_id = message.chat.id
-        user = self.users[chat_id]
         if not utils.check_user_permission(chat_id):
             return False
         utils.init_check_user(self.users, chat_id)
+        user = self.users[chat_id]
         default_user_file_path = str(Path(f"{cfg.history_dir_path}/{str(chat_id)}.json"))
-        if document := message.document:
-            await document.download(
-                destination_dir=str(Path(f"{cfg.history_dir_path}")),
-                destination_file=str(Path(f"{chat_id}.json")),
-            )
+
+        file = await self.bot.get_file(file_id=message.document.file_id)
+        file_path = file.file_path
+        await self.bot.download_file(file_path=file_path, destination=default_user_file_path)
+
         user.load_user_history(default_user_file_path)
         if len(user.history) > 0:
             last_message = user.history[-1]["out"]
@@ -382,7 +382,6 @@ class AiogramLlmBot:
     # =============================================================================
     # button
     async def thread_push_button(self, cbq: types.CallbackQuery):
-        print("thread_push_button", cbq)
         chat_id = cbq.message.chat.id
         msg_id = cbq.message.message_id
         option = cbq.data
@@ -616,7 +615,7 @@ class AiogramLlmBot:
         await self.bot.send_document(
             chat_id=chat_id,
             caption=send_caption,
-            document=BufferedInputFile(file=bytes(json_file), filename=self.users[chat_id].name2 + ".json"),
+            document=BufferedInputFile(file=bytes(json_file, "utf-8"), filename=self.users[chat_id].name2 + ".json"),
         )
 
     async def on_reset_history_button(self, cbq):
