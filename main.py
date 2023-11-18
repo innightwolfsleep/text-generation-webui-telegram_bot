@@ -4,7 +4,7 @@ import asyncio
 from os.path import exists, normpath
 from os import remove
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event
 from typing import Dict
 
 import backoff
@@ -177,7 +177,6 @@ class AiogramLlmBot:
         )
 
     async def start_send_typing_status(self, chat_id: int) -> Event:
-        print("start_send_typing_status")
         typing_active = Event()
         typing_active.set()
         asyncio.create_task(self.thread_typing_status(chat_id, typing_active))
@@ -218,13 +217,13 @@ class AiogramLlmBot:
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def clean_last_message_markup(self, chat_id: int):
+    async def clean_last_message_markup(self, chat_id: int):
         if chat_id in self.users and len(self.users[chat_id].msg_id) > 0:
             last_msg = self.users[chat_id].msg_id[-1]
             try:
-                self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=last_msg)
+                await self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=last_msg, reply_markup=None)
             except Exception as exception:
-                logging.info("last_message_markup_clean: " + str(exception))
+                logging.info("clean_last_message_markup: " + str(exception))
 
     @backoff.on_exception(
         backoff.expo,
@@ -347,7 +346,6 @@ class AiogramLlmBot:
         try:
             if utils.check_user_rule(chat_id=chat_id, option=const.GET_MESSAGE) is not True:
                 return False
-            # Generate answer and replace "typing" message with it
             if not user_text.startswith(tuple(cfg.sd_api_prefixes)):
                 user_text = utils.prepare_text(user_text, user, "to_model")
             print("tp.async_get_answer")
@@ -369,7 +367,7 @@ class AiogramLlmBot:
                 # message = self.send_message(text=answer, chat_id=chat_id, context=context)
                 reply = await self.send_message(text=answer, chat_id=chat_id)
                 # Clear buttons on last message (if they exist in current thread)
-                self.clean_last_message_markup(chat_id)
+                await self.clean_last_message_markup(chat_id)
                 # Add message ID to message history
                 user.msg_id.append(reply.message_id)
                 # Save user history
@@ -493,7 +491,7 @@ class AiogramLlmBot:
                 reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
-            self.clean_last_message_markup(chat_id)
+            await self.clean_last_message_markup(chat_id)
         answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_IMPERSONATE,
             user=user,
@@ -516,7 +514,7 @@ class AiogramLlmBot:
                 reply_markup=self.get_options_keyboard(chat_id, user),
             )
         else:
-            self.clean_last_message_markup(chat_id)
+            await self.clean_last_message_markup(chat_id)
         answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_NEXT,
             user=user,
@@ -571,7 +569,7 @@ class AiogramLlmBot:
         chat_id = cbq.message.chat.id
         msg = cbq.message
         user = self.users[chat_id]
-        self.clean_last_message_markup(chat_id)
+        await self.clean_last_message_markup(chat_id)
         # get answer and replace message text!
         answer, _ = await tp.aget_answer(
             text_in=const.GENERATOR_MODE_REGENERATE,
@@ -630,7 +628,7 @@ class AiogramLlmBot:
             return
         user = self.users[chat_id]
         if user.msg_id:
-            self.clean_last_message_markup(chat_id)
+            await self.clean_last_message_markup(chat_id)
         user.reset()
         user.load_character_file(cfg.characters_dir_path, user.char_file)
         send_text = self.make_template_message("mem_reset", chat_id)
@@ -755,7 +753,7 @@ class AiogramLlmBot:
         chat_id = cbq.message.chat.id
         char_num = int(option.replace(const.BTN_CHAR_LOAD, ""))
         char_list = utils.parse_characters_dir()
-        self.clean_last_message_markup(chat_id)
+        await self.clean_last_message_markup(chat_id)
         utils.init_check_user(self.users, chat_id)
         char_file = char_list[char_num]
         self.users[chat_id].load_character_file(characters_dir_path=cfg.characters_dir_path, char_file=char_file)
