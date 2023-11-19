@@ -1,4 +1,4 @@
-python-telegram-bot==13.15
+aiogram==2.25.2
 pyyaml>=6.0.0
 deep-translator>=1.9.2
 omegaconf==2.3.0

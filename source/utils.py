@@ -22,12 +22,12 @@ except ImportError:
 def prepare_text(original_text: str, user: User, direction="to_user"):
     text = original_text
     # translate
-    if cfg.model_lang != user.language:
+    if cfg.llm_lang != user.language:
         try:
             if direction == "to_model":
-                text = Translator(source=user.language, target=cfg.model_lang).translate(text)
+                text = Translator(source=user.language, target=cfg.llm_lang).translate(text)
             elif direction == "to_user":
-                text = Translator(source=cfg.model_lang, target=user.language).translate(text)
+                text = Translator(source=cfg.llm_lang, target=user.language).translate(text)
         except Exception as exception:
             text = "can't translate text:" + str(text)
             logging.error("translator_error:\n" + str(exception) + "\n" + str(exception.args))
@@ -39,7 +39,7 @@ def prepare_text(original_text: str, user: User, direction="to_user"):
             original_text = original_text[:2000]
         if len(text) > 2000:
             text = text[:2000]
-        if cfg.model_lang != user.language and direction == "to_user" and cfg.translation_as_hidden_text == "on":
+        if cfg.llm_lang != user.language and direction == "to_user" and cfg.translation_as_hidden_text == "on":
             text = (
                 cfg.html_tag[0]
                 + original_text
