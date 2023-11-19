@@ -11,7 +11,7 @@ from typing import Dict, Union
 import backoff
 import urllib3
 from aiogram import Bot, types
-from aiogram.types import Message, CallbackQuery, Document
+from aiogram.types import Message, CallbackQuery
 from aiogram.types.inline_keyboard import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.dispatcher import Dispatcher
 from aiogram.types.input_file import InputFile

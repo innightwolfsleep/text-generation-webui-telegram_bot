@@ -18,7 +18,7 @@ def run_server(token, config_file_path=""):
         token = os.environ.get("BOT_TOKEN", "")
     # create TelegramBotWrapper instance
     # by default, read parameters in telegram_config.cfg
-    tg_server = AiogramLlmBot()
+    tg_server = AiogramLlmBot(config_file_path=config_file_path)
     asyncio.run(tg_server.run_telegram_bot(token))
 
 
