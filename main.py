@@ -1,22 +1,23 @@
 import json
+import io
 import logging
 import asyncio
 from os.path import exists, normpath
 from os import remove
 from pathlib import Path
 from threading import Event
-from typing import Dict
+from typing import Dict, Union
 
 import backoff
 import urllib3
 from aiogram import Bot, types
-from aiogram.types import Message, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery, Document
+from aiogram.types.inline_keyboard import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.dispatcher import Dispatcher
-from aiogram.filters.command import Command
-from aiogram.types.input_file import InputFile, BufferedInputFile
-from aiogram.types.input_media_audio import InputMediaAudio
-from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.types.input_file import InputFile
+from aiogram.types.input_media import InputMediaAudio
+
+# from aiogram.client.session.aiohttp import AiohttpSession
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,8 +44,8 @@ except ImportError:
 
 class AiogramLlmBot:
     # Set dummy obj for telegram updater
-    bot: Bot = None
-    dp: Dispatcher = Dispatcher()
+    bot: Union[Bot, None] = None
+    dp: Union[Dispatcher, None] = None
     # dict of User data dicts, here stored all users' session info.
     users: Dict[int, User] = {}
 
@@ -93,17 +94,14 @@ class AiogramLlmBot:
             token_file_name = token_file_name or cfg.token_file_path
             with open(normpath(token_file_name), "r", encoding="utf-8") as f:
                 bot_token = f.read().strip()
-        if cfg.proxy_url:
-            session = AiohttpSession(proxy="protocol://host:port/")
-        else:
-            session = None
-        self.bot = Bot(token=bot_token, session=session)
-        self.dp = Dispatcher()
-        self.dp.message.register(self.thread_welcome_message, Command("start"))
-        self.dp.message.register(self.thread_get_message)
-        self.dp.message.register(self.thread_get_json_document)
-        self.dp.callback_query.register(self.thread_push_button)
-        await self.dp.start_polling(self.bot)
+        proxy_url = cfg.proxy_url if cfg.proxy_url else None
+        self.bot = Bot(token=bot_token, proxy=proxy_url)
+        self.dp = Dispatcher(self.bot)
+        self.dp.register_message_handler(self.thread_welcome_message, commands=["start"])
+        self.dp.register_message_handler(self.thread_get_message)
+        self.dp.register_message_handler(self.thread_get_json_document, content_types=types.ContentType.DOCUMENT)
+        self.dp.register_callback_query_handler(self.thread_push_button)
+        await self.dp.start_polling()
 
         # Thread(target=self.no_sleep_callback).start()
 
@@ -150,8 +148,6 @@ class AiogramLlmBot:
     # Work with history! Init/load/save functions
 
     async def thread_get_json_document(self, message: Message):
-        if message.document is None:
-            return
         chat_id = message.chat.id
         if not utils.check_user_permission(chat_id):
             return False
@@ -606,16 +602,16 @@ class AiogramLlmBot:
 
     async def on_download_json_button(self, cbq):
         chat_id = cbq.message.chat.id
-
+        user = self.users[chat_id]
         if chat_id not in self.users:
             return
 
-        json_file = self.users[chat_id].to_json()
+        user_file = io.StringIO(self.users[chat_id].to_json())
         send_caption = self.make_template_message("hist_to_chat", chat_id)
         await self.bot.send_document(
             chat_id=chat_id,
             caption=send_caption,
-            document=BufferedInputFile(file=bytes(json_file, "utf-8"), filename=self.users[chat_id].name2 + ".json"),
+            document=InputFile(user_file, filename=user.name2 + ".json"),
         )
 
     async def on_reset_history_button(self, cbq):
