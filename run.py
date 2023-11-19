@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-from threading import Thread
 
 from dotenv import load_dotenv
 
