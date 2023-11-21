@@ -341,7 +341,7 @@ class AiogramLlmBot:
             if utils.check_user_rule(chat_id=chat_id, option=const.GET_MESSAGE) is not True:
                 return False
             if not user_text.startswith(tuple(cfg.sd_api_prefixes)):
-                user_text = utils.prepare_text(user_text, user, "to_model")
+                user_text = await utils.prepare_text(user_text, user, "to_model")
             answer, system_message = await tp.aget_answer(
                 text_in=user_text,
                 user=user,
