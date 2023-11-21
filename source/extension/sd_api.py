@@ -8,6 +8,11 @@ import random
 import requests
 from PIL import Image, PngImagePlugin
 
+try:
+    import extensions.telegram_bot.source.utils as utils
+except ImportError:
+    import source.utils as utils
+
 
 class SdApi:
     def __init__(self, url="", sd_config_file_path=""):
@@ -22,6 +27,10 @@ class SdApi:
             self.payload = {"prompt": "", "steps": 15}
         logging.info(f"### SdApi INIT DONE ###")
 
+    async def get_image(self, prompt: str):
+        return await self.txt_to_image(prompt)
+
+    @utils.async_wrap
     def txt_to_image(self, prompt: str):
         payload = self.payload.copy()
         payload["prompt"] = prompt

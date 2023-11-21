@@ -5,8 +5,10 @@ import torch
 from num2words import num2words
 
 try:
+    import extensions.telegram_bot.source.utils as utils
     from extensions.telegram_bot.source.user import User as User
 except ImportError:
+    import source.utils as utils
     from source.user import User as User
 
 
@@ -82,7 +84,7 @@ class Silero:
     }
 
     def __init__(
-        self,
+            self,
     ):
         torch.set_num_threads(4)
         self.device = torch.device("cpu")
@@ -91,7 +93,11 @@ class Silero:
         self.model = "silero_tts"
         logging.info(f"### Silero INIT DONE ###")
 
-    def get_audio(self, text: str, user_id: int, user: User):
+    async def get_audio(self, text: str, user_id: int, user: User):
+        return await self.generate_audio(text, user_id, user)
+
+    @utils.async_wrap
+    def generate_audio(self, text: str, user_id: int, user: User):
         if user.silero_speaker == "None" or user.silero_model_id == "None":
             return None
         if user.silero_speaker == "None" or user.silero_model_id == "None":
@@ -183,7 +189,7 @@ class Silero:
 
             start = match.start()
             end = match.end()
-            result = result[0:start] + result[start:end].replace(".", "").replace(",", ".") + result[end : len(result)]
+            result = result[0:start] + result[start:end].replace(".", "").replace(",", ".") + result[end: len(result)]
 
         # removes comma separators from existing American numbers
         pattern = re.compile(r"(\d),(\d)")
@@ -208,9 +214,9 @@ class Silero:
             start = match.start()
             end = match.end()
             result = (
-                result[0 : start + 1]
-                + str(self.roman_to_int(result[start + 1 : end - 1]))
-                + result[end - 1 : len(result)]
+                    result[0: start + 1]
+                    + str(self.roman_to_int(result[start + 1: end - 1]))
+                    + result[end - 1: len(result)]
             )
         return result
 
@@ -249,7 +255,7 @@ class Silero:
 
             start = match.start()
             end = match.end()
-            result = result[0:start] + self.replace_abbreviation(result[start:end]) + result[end : len(result)]
+            result = result[0:start] + self.replace_abbreviation(result[start:end]) + result[end: len(result)]
 
         return result
 
@@ -264,7 +270,7 @@ class Silero:
 
             start = match.start()
             end = match.end()
-            result = result[0:start] + self.replace_abbreviation(result[start:end].upper()) + result[end : len(result)]
+            result = result[0:start] + self.replace_abbreviation(result[start:end].upper()) + result[end: len(result)]
 
         return result
 

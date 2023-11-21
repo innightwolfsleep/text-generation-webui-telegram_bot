@@ -1,8 +1,4 @@
-import importlib
 import logging
-import asyncio
-
-from functools import wraps, partial
 from re import split, sub
 from threading import Lock
 from time import sleep
@@ -14,43 +10,34 @@ except ImportError:
     from source.generators.abstract_generator import AbstractGenerator
 
 try:
-    from extensions.telegram_bot.source.user import User as User
     import extensions.telegram_bot.source.const as const
+    import extensions.telegram_bot.source.utils as utils
+    import extensions.telegram_bot.source.generator as generator
+    from extensions.telegram_bot.source.user import User as User
+    from extensions.telegram_bot.source.conf import cfg
     from extensions.telegram_bot.source.conf import cfg
 except ImportError:
-    from source.user import User as User
     import source.const as const
+    import source.utils as utils
+    import source.generator as generator
+    from source.user import User as User
     from source.conf import cfg
 
 # Define generator lock to prevent GPU overloading
 generator_lock = Lock()
 
 # Generator obj
-generator: AbstractGenerator
 debug_flag = True
 
 
 # ====================================================================================
 # TEXT LOGIC
-
-
 async def aget_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in="") -> Tuple[str, str]:
     return await get_answer(text_in, user, bot_mode, generation_params, name_in)
 
 
-def wrap(func):
-    @wraps(func)
-    async def run(*args, loop=None, executor=None, **kwargs):
-        if loop is None:
-            loop = asyncio.get_event_loop()
-        target_func = partial(func, *args, **kwargs)
-        return await loop.run_in_executor(executor, target_func)
-
-    return run
-
-
-@wrap
-def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in="") -> Tuple[str, str]:
+@utils.async_wrap
+def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict, name_in=""):
     # additional delay option
     if cfg.answer_delay > 0:
         sleep(cfg.answer_delay)
@@ -200,7 +187,7 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             greeting = ""
         # Make prompt: context + example + conversation history
         available_len = generation_params["truncation_length"]
-        context_len = get_tokens_count(context)
+        context_len = generator.get_tokens_count(context)
         available_len -= context_len
         if available_len < 0:
             available_len = 0
@@ -218,7 +205,7 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         prompt = ""
         for s in reversed(conversation):
             s = "\n" + s if len(s) > 0 else s
-            s_len = get_tokens_count(s)
+            s_len = generator.get_tokens_count(s)
             if available_len >= s_len:
                 prompt = s + prompt
                 available_len -= s_len
@@ -231,7 +218,9 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             prompt,
         )
         # Generate!
-        answer = generate_answer(
+        if debug_flag:
+            print(prompt)
+        answer = generator.generate_answer(
             prompt=prompt,
             generation_params=generation_params,
             eos_token=eos_token,
@@ -239,6 +228,8 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             default_answer=answer,
             turn_template=user.turn_template,
         )
+        if debug_flag:
+            print(answer)
         # Truncate prompt prefix/postfix
         if len(cfg.bot_prompt_end) > 0 and answer.endswith(cfg.bot_prompt_end):
             answer = answer[: -len(cfg.bot_prompt_end)]
@@ -267,106 +258,3 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         generator_lock.release()
         return_msg_action = const.MSG_SYSTEM
         return user.history[-1]["out"], return_msg_action
-
-
-# ====================================================================================
-# GENERATOR
-# import generator
-def init(script="generator_llama_cpp.py", model_path="", n_ctx=4096, n_gpu_layers=0):
-    """Initiate generator type
-    generator - is a class Generator from package generators/script
-    Generator class should contain method:
-       __init__() - method to initiate model
-       get_answer() - method get answer
-       tokens_count(str) - method to get str length in tokens
-    If Generator.model_change_allowed = True - also method:
-       get_model_list() - get list of available models
-       load_model(str) - load new model
-
-    Args:
-      script: script type, one of generators/*.py files
-      model_path: path to model file, if generator needs
-      n_ctx: context length, if generator needs
-      n_gpu_layers: n_gpu_layers for llama
-    """
-    logging.info(f"### text_process INIT generator: {script}, model: {model_path} ###")
-    try:
-        generator_class = getattr(importlib.import_module("source.generators." + script), "Generator")
-    except ImportError:
-        generator_class = getattr(
-            importlib.import_module("extensions.telegram_bot.source.generators." + script), "Generator"
-        )
-    global generator
-    generator = generator_class(model_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
-    logging.info(f"### text_process INIT generator: {script}, model: {model_path} DONE ###")
-
-
-def generate_answer(
-    prompt, generation_params, eos_token, stopping_strings, default_answer: str, turn_template=""
-) -> str:
-    """Generate and return answer string.
-
-    Args:
-      prompt: user prompt
-      generation_params: dict with various generator params
-      eos_token: list with end of string tokens
-      stopping_strings: list with strings stopping generating
-      default_answer: if generating fails, default_answer will be returned
-      turn_template: turn template if generator needs it
-
-    Returns:
-      generation result string
-    """
-    # Preparing, add stopping_strings
-    answer = default_answer
-    generation_params.update({"turn_template": turn_template})
-    if debug_flag:
-        print("stopping_strings =", stopping_strings)
-        print(prompt)
-    try:
-        answer = generator.generate_answer(
-            prompt,
-            generation_params,
-            eos_token,
-            stopping_strings,
-            default_answer,
-            turn_template,
-        )
-    except Exception as exception:
-        print("generation error:", str(exception) + str(exception.args))
-    if debug_flag:
-        print(answer)
-    return answer
-
-
-def get_tokens_count(text: str):
-    """Return string length in tokens
-
-    Args:
-      text: text to be counted
-
-    Returns:
-      text token length (int)
-    """
-    return generator.tokens_count(text)
-
-
-def get_model_list():
-    """Return list of available models
-
-    Returns:
-      list of available models
-    """
-    return generator.get_model_list()
-
-
-def load_model(model_file: str):
-    """Change current llm model to model_file
-
-    Args:
-      model_file: model file to be loaded
-
-    Returns:
-      True if loading successful, otherwise False
-    """
-    return generator.load_model(model_file)
