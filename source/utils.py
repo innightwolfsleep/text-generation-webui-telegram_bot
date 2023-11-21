@@ -1,5 +1,8 @@
 import json
 import logging
+import asyncio
+
+from functools import wraps, partial
 from os import listdir
 from os.path import exists, normpath
 from re import sub
@@ -19,15 +22,31 @@ except ImportError:
     from source.user import User as User
 
 
-def prepare_text(original_text: str, user: User, direction="to_user"):
+def async_wrap(func):
+    @wraps(func)
+    async def run(*args, loop=None, executor=None, **kwargs):
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        target_func = partial(func, *args, **kwargs)
+        return await loop.run_in_executor(executor, target_func)
+
+    return run
+
+
+@async_wrap
+def translate_text(text: str, source="en", target="en"):
+    return Translator(source=source, target=target).translate(text)
+
+
+async def prepare_text(original_text: str, user: User, direction="to_user"):
     text = original_text
     # translate
     if cfg.llm_lang != user.language:
         try:
             if direction == "to_model":
-                text = Translator(source=user.language, target=cfg.llm_lang).translate(text)
+                text = await translate_text(text=text, source=user.language, target=cfg.llm_lang)
             elif direction == "to_user":
-                text = Translator(source=cfg.llm_lang, target=user.language).translate(text)
+                text = await translate_text(text=text, source=cfg.llm_lang, target=user.language)
         except Exception as exception:
             text = "can't translate text:" + str(text)
             logging.error("translator_error:\n" + str(exception) + "\n" + str(exception.args))
@@ -127,9 +146,9 @@ def get_conversation_info(user: User):
     greeting_tokens = -1
     conversation_tokens = -1
     try:
-        history_tokens = tp.get_tokens_count(user.history_as_str())
-        context_tokens = tp.get_tokens_count(user.context)
-        greeting_tokens = tp.get_tokens_count(user.greeting)
+        history_tokens = tp.generator.get_tokens_count(user.history_as_str())
+        context_tokens = tp.generator.get_tokens_count(user.context)
+        greeting_tokens = tp.generator.get_tokens_count(user.greeting)
         conversation_tokens = history_tokens + context_tokens + greeting_tokens
     except Exception as e:
         logging.error("options_button tokens_count" + str(e))

@@ -45,9 +45,9 @@ def get_options_keyboard(chat_id, user: User):
         keyboard_raw.append({"text": language_flag + "Language", "callback_data": const.BTN_LANG_LIST + "0"})
     if utils.check_user_rule(chat_id, const.BTN_VOICE_LIST):
         keyboard_raw.append({"text": voice + "Voice", "callback_data": const.BTN_VOICE_LIST + "0"})
-    if utils.check_user_rule(chat_id, const.BTN_PRESET_LIST) and tp.generator.preset_change_allowed:
+    if utils.check_user_rule(chat_id, const.BTN_PRESET_LIST) and tp.generator.generator.preset_change_allowed:
         keyboard_raw.append({"text": "🔧Presets", "callback_data": const.BTN_PRESET_LIST + "0"})
-    if utils.check_user_rule(chat_id, const.BTN_MODEL_LIST) and tp.generator.model_change_allowed:
+    if utils.check_user_rule(chat_id, const.BTN_MODEL_LIST) and tp.generator.generator.model_change_allowed:
         keyboard_raw.append({"text": "🔨Model", "callback_data": const.BTN_MODEL_LIST + "0"})
     if utils.check_user_rule(chat_id, const.BTN_DELETE):
         keyboard_raw.append({"text": "❌Delete", "callback_data": const.BTN_DELETE})

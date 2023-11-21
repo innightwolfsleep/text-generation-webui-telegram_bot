@@ -17,7 +17,6 @@ from aiogram.dispatcher.dispatcher import Dispatcher
 from aiogram.types.input_file import InputFile
 from aiogram.types.input_media import InputMediaAudio
 
-# from aiogram.client.session.aiohttp import AiohttpSession
 
 logging.basicConfig(level=logging.INFO)
 
@@ -71,7 +70,7 @@ class AiogramLlmBot:
             logging.error("Cant find user_rules_file_path: " + cfg.user_rules_file_path)
             self.user_rules = {}
         # initiate generator
-        tp.init(
+        tp.generator.init(
             cfg.generator_script,
             cfg.llm_path,
             n_ctx=cfg.generation_params.get("chat_prompt_size", 1024),
@@ -117,7 +116,7 @@ class AiogramLlmBot:
         user_name = user_name.replace("ID", str(message.from_user.id) or "")
         return user_name
 
-    def make_template_message(self, request: str, chat_id: int, custom_string="") -> str:
+    async def make_template_message(self, request: str, chat_id: int, custom_string="") -> str:
         # create a message using default_messages_template or return
         # UNKNOWN_TEMPLATE
         if chat_id in self.users:
@@ -130,11 +129,11 @@ class AiogramLlmBot:
                 msg = msg.replace("_CONTEXT_", user.context)
                 msg = msg.replace(
                     "_GREETING_",
-                    utils.prepare_text(user.greeting, user, "to_user"),
+                    await utils.prepare_text(user.greeting, user, "to_user"),
                 )
                 msg = msg.replace(
                     "_CUSTOM_STRING_",
-                    utils.prepare_text(custom_string, user, "to_user"),
+                    await utils.prepare_text(custom_string, user, "to_user"),
                 )
                 msg = msg.replace("_OPEN_TAG_", cfg.html_tag[0])
                 msg = msg.replace("_CLOSE_TAG_", cfg.html_tag[1])
@@ -164,7 +163,7 @@ class AiogramLlmBot:
             last_message = user.history[-1]["out"]
         else:
             last_message = "<no message in history>"
-        send_text = self.make_template_message("hist_loaded", chat_id, last_message)
+        send_text = await self.make_template_message("hist_loaded", chat_id, last_message)
         await self.bot.send_message(
             chat_id=chat_id,
             text=send_text,
@@ -190,10 +189,10 @@ class AiogramLlmBot:
         (urllib3.exceptions.HTTPError, urllib3.exceptions.ConnectTimeoutError),
         max_time=10,
     )
-    def send_sd_image(self, message, answer: str, user_text: str):
+    async def send_sd_image(self, message, answer: str, user_text: str):
         chat_id = message.chat.id
         try:
-            file_list = self.SdApi.txt_to_image(answer)
+            file_list = await self.SdApi.get_image(answer)
             answer = answer.replace(cfg.sd_api_prompt_of.replace("OBJECT", user_text[1:].strip()), "")
             for char in ["[", "]", "{", "}", "(", ")", "*", '"', "'"]:
                 answer = answer.replace(char, "")
@@ -202,11 +201,11 @@ class AiogramLlmBot:
             if len(file_list) > 0:
                 for image_path in file_list:
                     if exists(image_path):
-                        self.bot.send_photo(caption=answer, chat_id=chat_id, photo=InputFile(image_path))
+                        await self.bot.send_photo(caption=answer, chat_id=chat_id, photo=InputFile(image_path))
                         remove(image_path)
         except Exception as e:
             logging.error("send_sd_image: " + str(e))
-            self.bot.send_message(text=answer, chat_id=chat_id)
+            await self.bot.send_message(text=answer, chat_id=chat_id)
 
     @backoff.on_exception(
         backoff.expo,
@@ -228,7 +227,7 @@ class AiogramLlmBot:
     )
     async def send_message(self, chat_id: int, text: str) -> Message:
         user = self.users[chat_id]
-        text = utils.prepare_text(text, user, "to_user")
+        text = await utils.prepare_text(text, user, "to_user")
         if user.silero_speaker == "None" or user.silero_model_id == "None":
             message = await self.bot.send_message(
                 text=text,
@@ -241,7 +240,7 @@ class AiogramLlmBot:
                 audio_text = ":".join(text.split(":")[1:])
             else:
                 audio_text = text
-            audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
+            audio_path = await self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
                 message = await self.bot.send_audio(
                     chat_id=chat_id,
@@ -272,7 +271,7 @@ class AiogramLlmBot:
         message_id: int,
     ):
         user = self.users[chat_id]
-        text = utils.prepare_text(text, user, "to_user")
+        text = await utils.prepare_text(text, user, "to_user")
         if cbq.message.text is not None:
             await self.bot.edit_message_text(
                 text=text,
@@ -286,7 +285,7 @@ class AiogramLlmBot:
                 audio_text = ":".join(text.split(":")[1:])
             else:
                 audio_text = text
-            audio_path = self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
+            audio_path = await self.silero.get_audio(text=audio_text, user_id=chat_id, user=user)
             if audio_path is not None:
                 await self.bot.edit_message_media(
                     chat_id=chat_id,
@@ -311,7 +310,7 @@ class AiogramLlmBot:
         if not utils.check_user_permission(chat_id):
             return False
         utils.init_check_user(self.users, chat_id)
-        send_text = self.make_template_message("char_loaded", chat_id)
+        send_text = await self.make_template_message("char_loaded", chat_id)
         await self.bot.send_message(
             chat_id=chat_id,
             text=send_text,
@@ -321,7 +320,6 @@ class AiogramLlmBot:
         )
 
     async def thread_get_message(self, message: types.Message):
-        print("thread_get_message")
         # Extract user input and chat ID
         user_text = message.text
         chat_id = message.chat.id
@@ -344,7 +342,6 @@ class AiogramLlmBot:
                 return False
             if not user_text.startswith(tuple(cfg.sd_api_prefixes)):
                 user_text = utils.prepare_text(user_text, user, "to_model")
-            print("tp.async_get_answer")
             answer, system_message = await tp.aget_answer(
                 text_in=user_text,
                 user=user,
@@ -356,7 +353,7 @@ class AiogramLlmBot:
                 await message.reply(text=answer)
             elif system_message == const.MSG_SD_API:
                 user.truncate_last_message()
-                self.send_sd_image(message, answer, user_text)
+                await self.send_sd_image(message, answer, user_text)
             else:
                 if system_message == const.MSG_DEL_LAST:
                     await message.delete()
@@ -607,7 +604,7 @@ class AiogramLlmBot:
             return
 
         user_file = io.StringIO(self.users[chat_id].to_json())
-        send_caption = self.make_template_message("hist_to_chat", chat_id)
+        send_caption = await self.make_template_message("hist_to_chat", chat_id)
         await self.bot.send_document(
             chat_id=chat_id,
             caption=send_caption,
@@ -627,7 +624,7 @@ class AiogramLlmBot:
             await self.clean_last_message_markup(chat_id)
         user.reset()
         user.load_character_file(cfg.characters_dir_path, user.char_file)
-        send_text = self.make_template_message("mem_reset", chat_id)
+        send_text = await self.make_template_message("mem_reset", chat_id)
         await self.bot.send_message(
             chat_id=chat_id,
             text=send_text,
@@ -638,8 +635,8 @@ class AiogramLlmBot:
     # =============================================================================
     # switching keyboard
     async def on_load_model_button(self, cbq, option: str):
-        if tp.get_model_list is not None:
-            model_list = tp.get_model_list()
+        if tp.generator.get_model_list is not None:
+            model_list = tp.generator.get_model_list()
             model_file = model_list[int(option.replace(const.BTN_MODEL_LOAD, ""))]
             chat_id = cbq.effective_chat.id
             send_text = "Loading " + model_file + ". 🪄"
@@ -651,8 +648,8 @@ class AiogramLlmBot:
                 parse_mode="HTML",
             )
             try:
-                tp.load_model(model_file)
-                send_text = self.make_template_message(
+                tp.generator.load_model(model_file)
+                send_text = await self.make_template_message(
                     request="model_loaded", chat_id=chat_id, custom_string=model_file
                 )
                 await self.bot.edit_message_text(
@@ -678,10 +675,10 @@ class AiogramLlmBot:
                 raise e
 
     async def on_keyboard_models_button(self, cbq, option: str):
-        if tp.get_model_list() is not None:
+        if tp.generator.get_model_list() is not None:
             chat_id = cbq.message.chat.id
             msg = cbq.message
-            model_list = tp.get_model_list()
+            model_list = tp.generator.get_model_list()
             if option == const.BTN_MODEL_LIST + const.BTN_OPTION:
                 await self.bot.edit_message_reply_markup(
                     chat_id=chat_id,
@@ -756,9 +753,9 @@ class AiogramLlmBot:
         #  If there was conversation with this character_file - load history
         self.users[chat_id].find_and_load_user_char_history(chat_id, cfg.history_dir_path)
         if len(self.users[chat_id].history) > 0:
-            send_text = self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1]["out"])
+            send_text = await self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1]["out"])
         else:
-            send_text = self.make_template_message("char_loaded", chat_id)
+            send_text = await self.make_template_message("char_loaded", chat_id)
         await self.bot.send_message(
             text=send_text,
             chat_id=chat_id,
