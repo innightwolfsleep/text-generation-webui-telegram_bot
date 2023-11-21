@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "<|system|>\n",
+	"context_prompt_end": "</s>",
+	"user_prompt_begin": "<|user|>\n",
+	"user_prompt_end": "</s>",
+	"bot_prompt_begin": "<|assistant|>\n",
+	"bot_prompt_end": "</s>"
+}

@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "### Instruction:\nPlay the role of Character. You must engage in a roleplaying chat with User below this line. Do not write dialogues and narration for User. Character should respond with messages of medium length.\n",
+	"context_prompt_end": "",
+	"user_prompt_begin": "### Input:\n",
+	"user_prompt_end": "\n",
+	"bot_prompt_begin": "### Response:\n",
+	"bot_prompt_end": "\n"
+}
