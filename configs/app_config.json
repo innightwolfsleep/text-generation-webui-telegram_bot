@@ -2,7 +2,7 @@
 	"bot_mode": "admin",
 	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models/timecrystal-l2-13b.Q3_K_M.gguf",
+	"model_path": "models/x-norochronos-13b.Q3_K_M.gguf",
 	"context_prompt_begin": "",
 	"context_prompt_end": "",
 	"user_prompt_begin": "",
@@ -22,8 +22,12 @@
 	"generator_params_file_path": "configs/generator_params.json",
 	"user_rules_file_path": "configs/telegram_user_rules.json",
 	"sd_config_file_path": "configs/sd_config.json",
+	"sd_api_url": "http://127.0.0.1:7860",
+	"sd_api_prompt_of": "What I see when look at OBJECT:",
+	"sd_api_prompt_self": "What I see right now:",
+	"html_tag": ["<pre>", "</pre>"],
+	"translate_html_tag": ["<span class=\"tg-spoiler\">", "</span>"],
 	"translate_as_hidden_text": "on",
 	"only_mention_in_chat": false,
-	"sd_api_url": "http://127.0.0.1:7860",
 	"proxy_url": ""
 }
