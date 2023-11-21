@@ -1,14 +1,12 @@
 If model uses custom prompt template - you needed to add this chat template to config file
-(app_config.json or ext_config.json)
 
 There is some examples:
 
 
 Will be added to readme later... 
 
-PROMPT templates in [ext_config.json](https://github.com/innightwolfsleep/text-generation-webui-telegram_bot/blob/main/configs/ext_config.json):
 
-No template
+empty template
 ```json
 	"context_prompt_begin": "",
 	"context_prompt_end": "",

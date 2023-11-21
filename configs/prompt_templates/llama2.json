@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "[INST] <<SYS>>\n",
+	"context_prompt_end": "<</SYS>>",
+	"user_prompt_begin": "[INST]\n",
+	"user_prompt_end": "[/INST]",
+	"bot_prompt_begin": "",
+	"bot_prompt_end": ""
+}

@@ -73,6 +73,7 @@ class Config(BaseModel):
     )
 
     # Set internal config vars Field(default=, description=)
+    prompt_template: str = Field(default="configs/prompt_templates/empty.json", description="prompt_template")
     history_dir_path: str = Field(default="history", description="history")
     characters_dir_path: str = Field(default="characters", description="characters")
     presets_dir_path: str = Field(default="presets", description="")
@@ -111,6 +112,8 @@ class Config(BaseModel):
     def load(self, config_file_path: str):
         logging.info(f"### Config LOAD config_file_path: {config_file_path} ###")
         self.load_config_file(config_file_path)
+        logging.info(f"### Config LOAD prompt_template: {self.prompt_template} ###")
+        self.load_prompt_template(self.prompt_template)
         logging.info(f"### Config LOAD generation_params: {self.generator_params_file_path} ###")
         self.load_generation_params(self.generator_params_file_path)
         logging.info(f"### Config LOAD load_preset: {self.preset_file} ###")
@@ -118,25 +121,20 @@ class Config(BaseModel):
         logging.info(f"### Config LOAD DONE ###")
 
     def load_config_file(self, config_file_path: str):
-        if exists(config_file_path):
+        if exists(normpath(config_file_path)):
             with open(normpath(config_file_path), "r") as config_file_path:
                 config = json.loads(config_file_path.read())
                 self.bot_mode = config.get("bot_mode", self.bot_mode)
                 self.user_name_template = config.get("user_name_template", self.user_name_template)
                 self.generator_script = config.get("generator_script", self.generator_script)
                 self.llm_path = config.get("model_path", self.llm_path)
-                self.context_prompt_begin = config.get("context_prompt_begin", self.context_prompt_begin)
-                self.context_prompt_end = config.get("context_prompt_end", self.context_prompt_end)
-                self.bot_prompt_begin = config.get("bot_prompt_begin", self.bot_prompt_begin)
-                self.bot_prompt_end = config.get("bot_prompt_end", self.bot_prompt_end)
-                self.user_prompt_begin = config.get("user_prompt_begin", self.user_prompt_begin)
-                self.user_prompt_end = config.get("user_prompt_end", self.user_prompt_end)
                 self.presets_dir_path = config.get("presets_dir_path", self.presets_dir_path)
                 self.preset_file = config.get("preset_file", self.preset_file)
                 self.characters_dir_path = config.get("characters_dir_path", self.characters_dir_path)
                 self.character_file = config.get("character_file", self.character_file)
                 self.llm_lang = config.get("model_lang", self.llm_lang)
                 self.user_lang = config.get("user_lang", self.user_lang)
+                self.prompt_template = config.get("prompt_template", self.prompt_template)
                 self.history_dir_path = config.get("history_dir_path", self.history_dir_path)
                 self.token_file_path = config.get("token_file_path", self.token_file_path)
                 self.admins_file_path = config.get("admins_file_path", self.admins_file_path)
@@ -158,6 +156,19 @@ class Config(BaseModel):
                 self.proxy_url = config.get("proxy_url", self.proxy_url)
         else:
             logging.error("Cant find config_file " + config_file_path)
+
+    def load_prompt_template(self, prompt_template_path=""):
+        if not prompt_template_path:
+            prompt_template_path = self.prompt_template
+        if exists(normpath(prompt_template_path)):
+            with open(normpath(prompt_template_path), "r") as prompt_template_file:
+                prompt_template = json.loads(prompt_template_file.read())
+                self.context_prompt_begin = prompt_template.get("context_prompt_begin", self.context_prompt_begin)
+                self.context_prompt_end = prompt_template.get("context_prompt_end", self.context_prompt_end)
+                self.bot_prompt_begin = prompt_template.get("bot_prompt_begin", self.bot_prompt_begin)
+                self.bot_prompt_end = prompt_template.get("bot_prompt_end", self.bot_prompt_end)
+                self.user_prompt_begin = prompt_template.get("user_prompt_begin", self.user_prompt_begin)
+                self.user_prompt_end = prompt_template.get("user_prompt_end", self.user_prompt_end)
 
     def load_generation_params(self, generator_params_file_path=""):
         if generator_params_file_path is not None:
