@@ -37,11 +37,15 @@ class Config(BaseModel):
         ],
         description="Prefix to generate image via SD API",
     )
-    sd_api_prompt_of: str = "Detailed description of OBJECT:"
-    sd_api_prompt_self: str = "Detailed description of surroundings:"
+    sd_api_prompt_of: str = Field(
+        default="Detailed description of OBJECT:", description="sd api - prompt for ordinary request"
+    )
+    sd_api_prompt_self: str = Field(
+        default="Detailed description of surroundings:", description="sd api - prompt for empty request"
+    )
 
     html_tag: list = Field(default=["<pre>", "</pre>"], description="html tags for ordinary text")
-    translate_html_tag: list  = Field(
+    translate_html_tag: list = Field(
         default=['<span class="tg-spoiler">', "</span>"], description="html tags for translated text"
     )
     translation_as_hidden_text: str = Field(
@@ -68,37 +72,39 @@ class Config(BaseModel):
         description="Language list for translator",
     )
 
-    # Set internal config vars
-    history_dir_path: str = "history"
-    characters_dir_path: str = "characters"
-    presets_dir_path: str = "presets"
-    token_file_path: str = "telegram_token.txt"
-    admins_file_path: str = "telegram_admins.txt"
-    users_file_path: str = "telegram_users.txt"
-    generator_params_file_path: str = "generator_params.json"
-    user_rules_file_path: str = "telegram_user_rules.json"
-    sd_api_url: str = "http://127.0.0.1:7860"
-    sd_config_file_path: str = "sd_config.json"
-    proxy_url: str = ""
+    # Set internal config vars Field(default=, description=)
+    history_dir_path: str = Field(default="history", description="history")
+    characters_dir_path: str = Field(default="characters", description="characters")
+    presets_dir_path: str = Field(default="presets", description="")
+    token_file_path: str = Field(default="telegram_token.txt", description="")
+    admins_file_path: str = Field(default="telegram_admins.txt", description="")
+    users_file_path: str = Field(default="telegram_users.txt", description="")
+    generator_params_file_path: str = Field(default="generator_params.json", description="")
+    user_rules_file_path: str = Field(default="telegram_user_rules.json", description="")
+    sd_api_url: str = Field(default="http://127.0.0.1:7860", description="")
+    sd_config_file_path: str = Field(default="sd_config.json", description="")
+    proxy_url: str = Field(default="", description="")
     # Set bot mode
-    bot_mode: str = "admin"
-    user_name_template: str = ""  # template for username. "" - default (You), FIRSTNAME, LASTNAME, USERNAME, ID
-    generator_script: str = ""  # mode loaded from config
-    llm_path: str = ""
-    context_prompt_begin: str = ""
-    context_prompt_end: str = ""
-    bot_prompt_begin: str = ""
-    bot_prompt_end: str = ""
-    user_prompt_begin: str = ""
-    user_prompt_end: str = ""
+    bot_mode: str = Field(default="admin", description="")
+    user_name_template: str = Field(
+        default="", description="template for username. " " - default (You), FIRSTNAME, LASTNAME, USERNAME, ID"
+    )
+    generator_script: str = Field(default="", description="mode loaded from config")
+    llm_path: str = Field(default="", description="")
+    context_prompt_begin: str = Field(default="", description="")
+    context_prompt_end: str = Field(default="", description="")
+    bot_prompt_begin: str = Field(default="", description="")
+    bot_prompt_end: str = Field(default="", description="")
+    user_prompt_begin: str = Field(default="", description="")
+    user_prompt_end: str = Field(default="", description="")
     # Set default character json file
-    character_file: str = "Example.yaml"
-    preset_file: str = "LLaMA-Creative.txt"
+    character_file: str = Field(default="Example.yaml", description="")
+    preset_file: str = Field(default="LLaMA-Creative.txt", description="")
     # Set translator
-    llm_lang: str = "en"
-    user_lang: str = "en"
+    llm_lang: str = Field(default="en", description="")
+    user_lang: str = Field(default="en", description="")
     # generator params!
-    generation_params: dict = {}
+    generation_params: dict = Field(default={}, description="")
 
     # generator initiate
 
@@ -140,6 +146,8 @@ class Config(BaseModel):
                 )
                 self.user_rules_file_path = config.get("user_rules_file_path", self.user_rules_file_path)
                 self.sd_api_url = config.get("sd_api_url", self.sd_api_url)
+                self.sd_api_prompt_of = config.get("sd_api_prompt_of", self.sd_api_prompt_of)
+                self.sd_api_prompt_self = config.get("sd_api_prompt_self", self.sd_api_prompt_self)
                 self.only_mention_in_chat = config.get("only_mention_in_chat", self.only_mention_in_chat)
                 self.sd_config_file_path = config.get("sd_config_file_path", self.sd_config_file_path)
                 cfg.translation_as_hidden_text = config.get(
