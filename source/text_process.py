@@ -74,14 +74,14 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             return "Added to context: " + text_in[2:], return_msg_action
         if text_in.startswith(tuple(cfg.replace_prefixes)):
             # If user_in starts with replace_prefix - fully replace last message
-            user.history[-1]["out"] = text_in[1:]
+            user.change_last_message(history_out=text_in[1:])
             return_msg_action = const.MSG_DEL_LAST
             generator_lock.release()
-            return user.history[-1]["out"], return_msg_action
+            return user.history_last_out, return_msg_action
         if text_in == const.GENERATOR_MODE_DEL_WORD:
             # If user_in starts with replace_prefix - fully replace last message
             # get and change last message
-            last_message = user.history[-1]["out"]
+            last_message = user.history_last_out
             last_word = split(r"\n|\.+ +|: +|! +|\? +|\' +|\" +|; +|\) +|\* +", last_message)[-1]
             if len(last_word) == 0 and len(last_message) > 1:
                 last_word = " "
@@ -90,9 +90,9 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             if len(new_last_message) == 0:
                 return_msg_action = const.MSG_NOTHING_TO_DO
             else:
-                user.change_last_message(history_answer=new_last_message)
+                user.change_last_message(history_out=new_last_message)
             generator_lock.release()
-            return user.history[-1]["out"], return_msg_action
+            return user.history_last_out, return_msg_action
 
         # Preprocessing: actions which not depends on user input:
         if bot_mode in [const.MODE_QUERY]:
@@ -100,7 +100,9 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
 
         # if regenerate - msg_id the same, text and name the same. But history clearing:
         if text_in == const.GENERATOR_MODE_REGENERATE:
-            previous_result = user.history[-1]["out"]
+            if str(user.msg_id[-1]) not in user.previous_history:
+                user.previous_history.update({str(user.msg_id[-1]): []})
+            user.previous_history[str(user.msg_id[-1])].append(user.history_last_out)
             text_in = user.text_in[-1]
             name_in = user.name_in[-1]
             last_msg_id = user.msg_id[-1]
@@ -247,14 +249,16 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             for end in stopping_strings:
                 if answer.endswith(end):
                     answer = answer[: -len(end)]
-            user.history[-1]["out"] = user.history[-1]["out"] + " " + answer
+            user.change_last_message(history_out=user.history_last_out + " " + answer)
         generator_lock.release()
-        if previous_result == user.history[-1]["out"]:
-            return_msg_action = const.MSG_NOTHING_TO_DO
-        return user.history[-1]["out"], return_msg_action
+        if len(user.msg_id) > 0:
+            if str(user.msg_id[-1]) in user.previous_history:
+                if user.previous_history[str(user.msg_id[-1])][-1] == user.history_last_out:
+                    return_msg_action = const.MSG_NOTHING_TO_DO
+        return user.history_last_out, return_msg_action
     except Exception as exception:
         logging.error("get_answer (generator part) " + str(exception) + str(exception.args))
         # anyway, release generator lock. Then return
         generator_lock.release()
         return_msg_action = const.MSG_SYSTEM
-        return user.history[-1]["out"], return_msg_action
+        return user.history_last_out, return_msg_action

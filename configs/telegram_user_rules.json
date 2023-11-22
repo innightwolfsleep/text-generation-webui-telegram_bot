@@ -5,6 +5,7 @@
     "InitialNext": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": false},
     "Continue": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
     "Delete_one_word": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "Previous_message": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": true},
     "Regen": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": true},
     "Cutoff": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
     "options": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},

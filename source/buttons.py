@@ -61,10 +61,12 @@ def get_chat_keyboard(chat_id=0):
         keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE})
     if utils.check_user_rule(chat_id, const.BTN_NEXT):
         keyboard_raw.append({"text": "▶Next", "callback_data": const.BTN_NEXT})
-    if utils.check_user_rule(chat_id, const.BTN_CONTINUE):
-        keyboard_raw.append({"text": "➡Continue", "callback_data": const.BTN_CONTINUE})
+    #    if utils.check_user_rule(chat_id, const.BTN_CONTINUE):
+    #        keyboard_raw.append({"text": "➡Continue", "callback_data": const.BTN_CONTINUE})
     if utils.check_user_rule(chat_id, const.BTN_DEL_WORD):
         keyboard_raw.append({"text": "⬅Del sentence", "callback_data": const.BTN_DEL_WORD})
+    if utils.check_user_rule(chat_id, const.BTN_PREVIOUS):
+        keyboard_raw.append({"text": "🔙Previous variant", "callback_data": const.BTN_PREVIOUS})
     if utils.check_user_rule(chat_id, const.BTN_REGEN):
         keyboard_raw.append({"text": "♻Regenerate", "callback_data": const.BTN_REGEN})
     if utils.check_user_rule(chat_id, const.BTN_OPTION):
