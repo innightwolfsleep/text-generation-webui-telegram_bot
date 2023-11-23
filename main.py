@@ -160,7 +160,7 @@ class AiogramLlmBot:
 
         user.load_user_history(default_user_file_path)
         if len(user.history) > 0:
-            last_message = user.history[-1]["out"]
+            last_message = user.history_last_out
         else:
             last_message = "<no message in history>"
         send_text = await self.make_template_message("hist_loaded", chat_id, last_message)
@@ -233,7 +233,7 @@ class AiogramLlmBot:
                 text=text,
                 chat_id=chat_id,
                 parse_mode="HTML",
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         else:
             if ":" in text:
@@ -247,14 +247,14 @@ class AiogramLlmBot:
                     audio=InputFile(audio_path),
                     caption=text,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
             else:
                 message = await self.bot.send_message(
                     text=text,
                     chat_id=chat_id,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
         return message
 
@@ -278,7 +278,7 @@ class AiogramLlmBot:
                 chat_id=chat_id,
                 parse_mode="HTML",
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         if cbq.message.audio is not None and user.silero_speaker != "None" and user.silero_model_id != "None":
             if ":" in text:
@@ -291,7 +291,7 @@ class AiogramLlmBot:
                     chat_id=chat_id,
                     media=InputMediaAudio(media=normpath(audio_path)),
                     message_id=message_id,
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
         if cbq.message.caption is not None:
             await self.bot.edit_message_caption(
@@ -299,7 +299,7 @@ class AiogramLlmBot:
                 caption=text,
                 parse_mode="HTML",
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
 
     # =============================================================================
@@ -426,6 +426,8 @@ class AiogramLlmBot:
             await self.on_next_message_button(cbq, initial=True)
         elif option == const.BTN_DEL_WORD and utils.check_user_rule(chat_id, option):
             await self.on_delete_word_button(cbq)
+        elif option == const.BTN_PREVIOUS and utils.check_user_rule(chat_id, option):
+            await self.on_previous_message_button(cbq)
         elif option == const.BTN_REGEN and utils.check_user_rule(chat_id, option):
             await self.on_regenerate_message_button(cbq)
         elif option == const.BTN_CUTOFF and utils.check_user_rule(chat_id, option):
@@ -536,7 +538,16 @@ class AiogramLlmBot:
             chat_id=chat_id,
             message_id=message.message_id,
         )
-        user.change_last_message(history_answer=answer)
+        user.save_user_history(chat_id, cfg.history_dir_path)
+
+    async def on_previous_message_button(self, cbq):
+        chat_id = cbq.message.chat.id
+        message = cbq.message
+        user = self.users[chat_id]
+        # get answer and replace message text!
+        answer = user.back_to_previous_out(msg_id=message.message_id)
+        if answer is not None:
+            await self.edit_message(text=answer, chat_id=chat_id, message_id=message.message_id, cbq=cbq)
         user.save_user_history(chat_id, cfg.history_dir_path)
 
     async def on_delete_word_button(self, cbq):
@@ -550,12 +561,7 @@ class AiogramLlmBot:
             name_in=self.get_user_profile_name(cbq),
         )
         if return_msg_action != const.MSG_NOTHING_TO_DO:
-            await self.edit_message(
-                text=answer,
-                chat_id=chat_id,
-                message_id=user.msg_id[-1],
-                cbq=cbq,
-            )
+            await self.edit_message(text=answer, chat_id=chat_id, message_id=user.msg_id[-1], cbq=cbq)
             user.save_user_history(chat_id, cfg.history_dir_path)
 
     async def on_regenerate_message_button(self, cbq):
@@ -593,7 +599,7 @@ class AiogramLlmBot:
             await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
@@ -748,12 +754,13 @@ class AiogramLlmBot:
         char_list = utils.parse_characters_dir()
         await self.clean_last_message_markup(chat_id)
         utils.init_check_user(self.users, chat_id)
+        user = self.users[chat_id]
         char_file = char_list[char_num]
-        self.users[chat_id].load_character_file(characters_dir_path=cfg.characters_dir_path, char_file=char_file)
+        user.load_character_file(characters_dir_path=cfg.characters_dir_path, char_file=char_file)
         #  If there was conversation with this character_file - load history
-        self.users[chat_id].find_and_load_user_char_history(chat_id, cfg.history_dir_path)
-        if len(self.users[chat_id].history) > 0:
-            send_text = await self.make_template_message("hist_loaded", chat_id, self.users[chat_id].history[-1]["out"])
+        user.find_and_load_user_char_history(chat_id, cfg.history_dir_path)
+        if len(user.history) > 0:
+            send_text = await self.make_template_message("hist_loaded", chat_id, user.history_last_out)
         else:
             send_text = await self.make_template_message("char_loaded", chat_id)
         await self.bot.send_message(
@@ -886,7 +893,11 @@ class AiogramLlmBot:
         return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 
     def get_chat_keyboard(self, chat_id=0):
-        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id))
+        if chat_id in self.users:
+            user = self.users[chat_id]
+        else:
+            user = None
+        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id, user=user))
 
     def get_switch_keyboard(
         self,

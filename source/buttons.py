@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 try:
     import extensions.telegram_bot.source.text_process as tp
@@ -54,19 +54,27 @@ def get_options_keyboard(chat_id, user: User):
     return [keyboard_raw]
 
 
-def get_chat_keyboard(chat_id=0):
+def get_chat_keyboard(chat_id, user: Optional[User]):
     keyboard_raw = []
-
     if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
         keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE})
     if utils.check_user_rule(chat_id, const.BTN_NEXT):
         keyboard_raw.append({"text": "▶Next", "callback_data": const.BTN_NEXT})
-    if utils.check_user_rule(chat_id, const.BTN_CONTINUE):
-        keyboard_raw.append({"text": "➡Continue", "callback_data": const.BTN_CONTINUE})
+    #    if utils.check_user_rule(chat_id, const.BTN_CONTINUE):
+    #        keyboard_raw.append({"text": "➡Continue", "callback_data": const.BTN_CONTINUE})
     if utils.check_user_rule(chat_id, const.BTN_DEL_WORD):
         keyboard_raw.append({"text": "⬅Del sentence", "callback_data": const.BTN_DEL_WORD})
+    if utils.check_user_rule(chat_id, const.BTN_PREVIOUS):
+        if user is None:
+            keyboard_raw.append({"text": "-", "callback_data": "none"})
+        elif len(user.msg_id) == 0:
+            keyboard_raw.append({"text": "-", "callback_data": "none"})
+        elif str(user.msg_id[-1]) in user.previous_history:
+            keyboard_raw.append({"text": "↪️Previous variant", "callback_data": const.BTN_PREVIOUS})
+        else:
+            keyboard_raw.append({"text": "-", "callback_data": "none"})
     if utils.check_user_rule(chat_id, const.BTN_REGEN):
-        keyboard_raw.append({"text": "♻Regenerate", "callback_data": const.BTN_REGEN})
+        keyboard_raw.append({"text": "🔄Regenerate", "callback_data": const.BTN_REGEN})
     if utils.check_user_rule(chat_id, const.BTN_OPTION):
         keyboard_raw.append({"text": "⚙Options", "callback_data": const.BTN_OPTION})
     if utils.check_user_rule(chat_id, const.BTN_CUTOFF):

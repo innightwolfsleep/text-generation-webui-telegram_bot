@@ -47,12 +47,21 @@ class User:
         self.text_in: List[str] = []  # "user input history": ["Hi!","Who are you?"], need for regenerate option
         self.name_in: List[str] = []  # user_name history need to correct regenerate option
         self.history: List[Dict[str]] = []  # "history": [["in": "query1", "out": "answer1"],["in": "query2",...
+        self.previous_history: Dict[str : List[str]] = {}  # "previous_history":
         self.msg_id: List[int] = []  # "msg_id": [143, 144, 145, 146],
         self.greeting: str = greeting  # "hello" or something
         self.last_msg_timestamp: int = 0  # last message timestamp to avoid message flood.
 
     def __or__(self, arg):
         return arg
+
+    @property
+    def history_last_out(self) -> str:
+        return self.history[-1]["out"]
+
+    @property
+    def history_last_in(self) -> str:
+        return self.history[-1]["in"]
 
     def truncate_last_message(self):
         """Truncate user history (minus one answer and user input)
@@ -92,17 +101,27 @@ class User:
                 history_list.append(s["out"])
         return history_list
 
-    def change_last_message(self, text_in=None, name_in=None, history_message=None, history_answer=None, msg_id=None):
+    def change_last_message(self, text_in=None, name_in=None, history_in=None, history_out=None, msg_id=None):
         if text_in:
             self.text_in[-1] = text_in
         if name_in:
             self.name_in[-1] = name_in
-        if history_message:
-            self.history[-1]["in"] = history_message
-        if history_answer:
-            self.history[-1]["out"] = history_answer
+        if history_in:
+            self.history[-1]["in"] = history_in
+        if history_out:
+            self.history[-1]["out"] = history_out
         if msg_id:
             self.msg_id[-1] = msg_id
+
+    def back_to_previous_out(self, msg_id):
+        if str(msg_id) in self.previous_history:
+            last_out = self.history_last_out
+            new_out = self.previous_history[str(msg_id)].pop(0)
+            self.history[-1]["out"] = new_out
+            self.previous_history[str(msg_id)].append(last_out)
+            return self.history_last_out
+        else:
+            return None
 
     def reset(self):
         """Clear bot history and reset to default everything but language, silero and chat_file."""
@@ -114,6 +133,7 @@ class User:
         self.text_in = []
         self.name_in = []
         self.history = []
+        self.previous_history = {}
         self.msg_id = []
         self.greeting = "Hello."
 
@@ -138,6 +158,7 @@ class User:
                 "text_in": self.text_in,
                 "name_in": self.name_in,
                 "history": self.history,
+                "previous_history": self.previous_history,
                 "msg_id": self.msg_id,
                 "greeting": self.greeting,
             }
@@ -167,6 +188,7 @@ class User:
             self.text_in = data["text_in"] if "text_in" in data else []
             self.name_in = data["name_in"] if "name_in" in data else []
             self.history = data["history"] if "history" in data else []
+            self.previous_history = data["previous_history"] if "previous_history" in data else {}
             self.msg_id = data["msg_id"] if "msg_id" in data else []
             self.greeting = data["greeting"] if "greeting" in data else "Hello."
             return True
