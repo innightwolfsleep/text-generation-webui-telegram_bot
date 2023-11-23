@@ -233,7 +233,7 @@ class AiogramLlmBot:
                 text=text,
                 chat_id=chat_id,
                 parse_mode="HTML",
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         else:
             if ":" in text:
@@ -247,14 +247,14 @@ class AiogramLlmBot:
                     audio=InputFile(audio_path),
                     caption=text,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
             else:
                 message = await self.bot.send_message(
                     text=text,
                     chat_id=chat_id,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
         return message
 
@@ -278,7 +278,7 @@ class AiogramLlmBot:
                 chat_id=chat_id,
                 parse_mode="HTML",
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         if cbq.message.audio is not None and user.silero_speaker != "None" and user.silero_model_id != "None":
             if ":" in text:
@@ -291,7 +291,7 @@ class AiogramLlmBot:
                     chat_id=chat_id,
                     media=InputMediaAudio(media=normpath(audio_path)),
                     message_id=message_id,
-                    reply_markup=self.get_chat_keyboard(),
+                    reply_markup=self.get_chat_keyboard(chat_id),
                 )
         if cbq.message.caption is not None:
             await self.bot.edit_message_caption(
@@ -299,7 +299,7 @@ class AiogramLlmBot:
                 caption=text,
                 parse_mode="HTML",
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
 
     # =============================================================================
@@ -599,7 +599,7 @@ class AiogramLlmBot:
             await self.bot.edit_message_reply_markup(
                 chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=self.get_chat_keyboard(),
+                reply_markup=self.get_chat_keyboard(chat_id),
             )
         user.save_user_history(chat_id, cfg.history_dir_path)
 
@@ -893,7 +893,11 @@ class AiogramLlmBot:
         return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 
     def get_chat_keyboard(self, chat_id=0):
-        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id))
+        if chat_id in self.users:
+            user = self.users[chat_id]
+        else:
+            user = None
+        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id, user=user))
 
     def get_switch_keyboard(
         self,
