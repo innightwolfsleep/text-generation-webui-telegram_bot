@@ -233,7 +233,7 @@ class AiogramLlmBot:
                 text=text,
                 chat_id=chat_id,
                 parse_mode="HTML",
-                reply_markup=self.get_chat_keyboard(chat_id),
+                reply_markup=self.get_chat_keyboard(chat_id, True),
             )
         else:
             if ":" in text:
@@ -247,14 +247,14 @@ class AiogramLlmBot:
                     audio=InputFile(audio_path),
                     caption=text,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(chat_id),
+                    reply_markup=self.get_chat_keyboard(chat_id, True),
                 )
             else:
                 message = await self.bot.send_message(
                     text=text,
                     chat_id=chat_id,
                     parse_mode="HTML",
-                    reply_markup=self.get_chat_keyboard(chat_id),
+                    reply_markup=self.get_chat_keyboard(chat_id, True),
                 )
         return message
 
@@ -892,12 +892,12 @@ class AiogramLlmBot:
     def get_options_keyboard(self, chat_id, user: User):
         return self.keyboard_raw_to_keyboard_tg(buttons.get_options_keyboard(chat_id=chat_id, user=user))
 
-    def get_chat_keyboard(self, chat_id=0):
+    def get_chat_keyboard(self, chat_id=0, no_previous=False):
         if chat_id in self.users:
             user = self.users[chat_id]
         else:
             user = None
-        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id=chat_id, user=user))
+        return self.keyboard_raw_to_keyboard_tg(buttons.get_chat_keyboard(chat_id, user, no_previous))
 
     def get_switch_keyboard(
         self,
