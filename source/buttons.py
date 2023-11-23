@@ -54,7 +54,7 @@ def get_options_keyboard(chat_id, user: User):
     return [keyboard_raw]
 
 
-def get_chat_keyboard(chat_id, user: Optional[User]):
+def get_chat_keyboard(chat_id, user: Optional[User], no_previous=False):
     keyboard_raw = []
     if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
         keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE})
@@ -65,7 +65,9 @@ def get_chat_keyboard(chat_id, user: Optional[User]):
     if utils.check_user_rule(chat_id, const.BTN_DEL_WORD):
         keyboard_raw.append({"text": "⬅Del sentence", "callback_data": const.BTN_DEL_WORD})
     if utils.check_user_rule(chat_id, const.BTN_PREVIOUS):
-        if user is None:
+        if no_previous:
+            keyboard_raw.append({"text": "-", "callback_data": "none"})
+        elif user is None:
             keyboard_raw.append({"text": "-", "callback_data": "none"})
         elif len(user.msg_id) == 0:
             keyboard_raw.append({"text": "-", "callback_data": "none"})
