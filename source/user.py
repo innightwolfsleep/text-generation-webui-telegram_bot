@@ -116,9 +116,9 @@ class User:
     def back_to_previous_out(self, msg_id):
         if str(msg_id) in self.previous_history:
             last_out = self.history_last_out
-            new_out = self.previous_history[str(msg_id)].pop(0)
+            new_out = self.previous_history[str(msg_id)].pop(-1)
             self.history[-1]["out"] = new_out
-            self.previous_history[str(msg_id)].append(last_out)
+            self.previous_history[str(msg_id)].insert(0, last_out)
             return self.history_last_out
         else:
             return None

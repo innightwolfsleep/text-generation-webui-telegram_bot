@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "### System:",
+	"context_prompt_end": "",
+	"user_prompt_begin": "### User:",
+	"user_prompt_end": "",
+	"bot_prompt_begin": "### Assistant:",
+	"bot_prompt_end": ""
+}
