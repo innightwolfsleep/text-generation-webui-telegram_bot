@@ -49,7 +49,9 @@ HOW TO INSTALL (**extension mode**):
 HOW TO USE (**extension mode**):
 1) get bot token from https://t.me/BotFather 
 2) add your bot token in `extensions\telegram_bot\configs\telegram_token.txt` file or oobabooga environment
-3) run server.py with `--extensions telegram_bot`
+3) add flags to CMD_FLAGS.txt `--api --extension telegram_bot`
+4) run appropriate start_OS script.
+(direct integration is not available now)
 ---------------
 
 HOW TO INSTALL/USE (**google collab**):
@@ -115,8 +117,9 @@ x_config.json
             - generator_llama_cpp - based on llama-cpp-python, recommended
             - generator_langchain_llama_cpp - based in langchain+llama
             - generator_transformers - based on transformers, untested
-            - generator_text_generator_webui - module to integrate in oobabooga/text-generation-webui (see innightwolfsleep/text-generation-webui-telegram_bot)
-            - generator_text_generator_webui_api - use oobabooga/text-generation-webui API extension
+            - generator_text_generator_webui_openapi - use oobabooga/text-generation-webui OpenAPI extension
+            - (BROKEN) generator_text_generator_webui - module to integrate in oobabooga/text-generation-webui (curently broken:( )
+            - (OUTDATED) generator_text_generator_webui_api - use oobabooga/text-generation-webui API (old api version)
     model_path=models\llama-13b.ggml.q4_0.gguf
         path to model file or directory
     characters_dir_path=characters

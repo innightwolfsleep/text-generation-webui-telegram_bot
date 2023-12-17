@@ -1,7 +1,7 @@
 {
 	"bot_mode": "admin",
 	"user_name_template": "",
-	"generator_script": "generator_text_generator_webui",
+	"generator_script": "generator_text_generator_webui_openapi",
 	"model_path": "unused",
 	"prompt_template": "extensions/telegram_bot/configs/prompt_templates/empty.json",
 	"characters_dir_path": "characters",
