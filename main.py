@@ -127,14 +127,8 @@ class AiogramLlmBot:
                 msg = msg.replace("_NAME1_", user.name1)
                 msg = msg.replace("_NAME2_", user.name2)
                 msg = msg.replace("_CONTEXT_", user.context)
-                msg = msg.replace(
-                    "_GREETING_",
-                    await utils.prepare_text(user.greeting, user, "to_user"),
-                )
-                msg = msg.replace(
-                    "_CUSTOM_STRING_",
-                    await utils.prepare_text(custom_string, user, "to_user"),
-                )
+                msg = msg.replace("_GREETING_", await utils.prepare_text(user.greeting, user, "to_user"))
+                msg = msg.replace("_CUSTOM_STRING_", await utils.prepare_text(custom_string, user, "to_user"))
                 msg = msg.replace("_OPEN_TAG_", cfg.html_tag[0])
                 msg = msg.replace("_CLOSE_TAG_", cfg.html_tag[1])
                 return msg
@@ -414,6 +408,8 @@ class AiogramLlmBot:
     async def handle_button_option(self, option, chat_id, cbq: types.CallbackQuery):
         if option == const.BTN_RESET and utils.check_user_rule(chat_id, option):
             await self.on_reset_history_button(cbq)
+        if option == const.BTN_SWITCH_GREETING and utils.check_user_rule(chat_id, option):
+            await self.on_switch_greeting_button(cbq)
         elif option == const.BTN_CONTINUE and utils.check_user_rule(chat_id, option):
             await self.on_continue_message_button(cbq)
         elif option == const.BTN_IMPERSONATE and utils.check_user_rule(chat_id, option):
@@ -630,6 +626,27 @@ class AiogramLlmBot:
             await self.clean_last_message_markup(chat_id)
         user.reset()
         user.load_character_file(cfg.characters_dir_path, user.char_file)
+        send_text = await self.make_template_message("mem_reset", chat_id)
+        await self.bot.send_message(
+            chat_id=chat_id,
+            text=send_text,
+            reply_markup=self.get_initial_keyboard(chat_id, user),
+            parse_mode="HTML",
+        )
+
+    async def on_switch_greeting_button(self, cbq):
+        # check if it is a callback_query or a command
+        if cbq:
+            chat_id = cbq.message.chat.id
+        else:
+            chat_id = cbq.chat.id
+        if chat_id not in self.users:
+            return
+        user = self.users[chat_id]
+        if not user.switch_greeting():
+            return
+        if user.msg_id:
+            await self.clean_last_message_markup(chat_id)
         send_text = await self.make_template_message("mem_reset", chat_id)
         await self.bot.send_message(
             chat_id=chat_id,

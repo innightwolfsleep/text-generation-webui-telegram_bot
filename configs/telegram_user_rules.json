@@ -12,6 +12,7 @@
     "Chars_list": {"admin": true,"chat": true,"chat-restricted": false,"notebook": true,"persona": false,"query": true},
     "Chars_load": {"admin": true,"chat": true,"chat-restricted": false,"notebook": true,"persona": false,"query": true},
     "Reset": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
+    "Switch_greeting": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": false,"query": false},
     "Download": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
     "Context": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},
     "Language_list": {"admin": true,"chat": true,"chat-restricted": true,"notebook": true,"persona": true,"query": true},

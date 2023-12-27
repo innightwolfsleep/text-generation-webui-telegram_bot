@@ -50,6 +50,7 @@ class User:
         self.previous_history: Dict[str : List[str]] = {}  # "previous_history":
         self.msg_id: List[int] = []  # "msg_id": [143, 144, 145, 146],
         self.greeting: str = greeting  # "hello" or something
+        self.alternate_greetings = []
         self.last_msg_timestamp: int = 0  # last message timestamp to avoid message flood.
 
     def __or__(self, arg):
@@ -136,6 +137,21 @@ class User:
         self.previous_history = {}
         self.msg_id = []
         self.greeting = "Hello."
+        self.alternate_greetings = []
+
+    def switch_greeting(self):
+        """Clear bot history and change greeting to alternate greeting, if alternate exist."""
+        if len(self.alternate_greetings) > 0:
+            last_greeting = self.greeting
+            new_greeting = self.alternate_greetings.pop(-1)
+            self.greeting = new_greeting
+            self.alternate_greetings.insert(0, last_greeting)
+            self.history = []
+            self.previous_history = {}
+            self.msg_id = []
+            return True
+        else:
+            return False
 
     def to_json(self):
         """Convert user data to json string.
@@ -161,6 +177,7 @@ class User:
                 "previous_history": self.previous_history,
                 "msg_id": self.msg_id,
                 "greeting": self.greeting,
+                "alternate_greetings": self.alternate_greetings,
             }
         )
 
@@ -191,6 +208,7 @@ class User:
             self.previous_history = data["previous_history"] if "previous_history" in data else {}
             self.msg_id = data["msg_id"] if "msg_id" in data else []
             self.greeting = data["greeting"] if "greeting" in data else "Hello."
+            self.alternate_greetings = data["alternate_greetings"] if "alternate_greetings" in data else []
             return True
         except Exception as exception:
             print("from_json", exception)
@@ -260,9 +278,13 @@ class User:
                 self.greeting = data["first_mes"].strip()
             if "greeting" in data:
                 self.greeting = data["greeting"].strip()
+            if "alternate_greetings" in data:
+                self.alternate_greetings = data["alternate_greetings"]
             self.context = self._replace_context_templates(self.context)
             self.greeting = self._replace_context_templates(self.greeting)
             self.example = self._replace_context_templates(self.example)
+            for i, greeting in enumerate(self.alternate_greetings):
+                self.alternate_greetings[i] = self._replace_context_templates(greeting)
             self.msg_id = []
             self.text_in = []
             self.name_in = []
