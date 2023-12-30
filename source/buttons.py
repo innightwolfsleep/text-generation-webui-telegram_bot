@@ -84,14 +84,17 @@ def get_chat_keyboard(chat_id, user: Optional[User], no_previous=False):
     return [keyboard_raw]
 
 
-def get_chat_init_keyboard(chat_id=0):
+def get_chat_init_keyboard(chat_id=0, alter_greeting_exist=False):
     keyboard_raw = []
     if utils.check_user_rule(chat_id, const.BTN_IMPERSONATE):
         keyboard_raw.append({"text": "🥸Impersonate", "callback_data": const.BTN_IMPERSONATE_INIT})
     if utils.check_user_rule(chat_id, const.BTN_NEXT):
         keyboard_raw.append({"text": "▶Next", "callback_data": const.BTN_NEXT_INIT})
     if utils.check_user_rule(chat_id, const.BTN_SWITCH_GREETING):
-        keyboard_raw.append({"text": "🔀Switch greeting", "callback_data": const.BTN_SWITCH_GREETING})
+        if alter_greeting_exist:
+            keyboard_raw.append({"text": "🔀Switch greeting", "callback_data": const.BTN_SWITCH_GREETING})
+        else:
+            keyboard_raw.append({"text": "-", "callback_data": "empty"})
     return [keyboard_raw]
 
 

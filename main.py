@@ -903,7 +903,8 @@ class AiogramLlmBot:
     # load characters char_file from ./characters
     def get_initial_keyboard(self, chat_id, user: User):
         options = buttons.get_options_keyboard(chat_id=chat_id, user=user)
-        chat_actions = buttons.get_chat_init_keyboard(chat_id=chat_id)
+        alter_greeting_exist = True if len(user.alternate_greetings) > 0 and len(user.history) == 0 else False
+        chat_actions = buttons.get_chat_init_keyboard(chat_id=chat_id, alter_greeting_exist=alter_greeting_exist)
         return self.keyboard_raw_to_keyboard_tg([options[0], chat_actions[0]])
 
     def get_options_keyboard(self, chat_id, user: User):
