@@ -325,8 +325,9 @@ class AiogramLlmBot:
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
         if cfg.only_mention_in_chat and message.chat.type != "CHAT_PRIVATE":
-            if "".join(["@", message.from_user.username]) in user_text:
-                user_text = user_text.replace("".join(["@", message.from_user.username]), "")
+            me = await self.bot.get_me()
+            if "".join(["@", me["username"]]) in user_text:
+                user_text = user_text.replace("".join(["@", me["username"]]), "")
             else:
                 return
         # Send "typing" message
