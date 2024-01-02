@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "",
+	"context_prompt_end": "### Instruction:\nFor roleplay, consider this format - Write {char}'s next reply in a chat between {user} and {char} Limit to a single reply.\n### Response:",
+	"user_prompt_begin": "",
+	"user_prompt_end": "",
+	"bot_prompt_begin": "",
+	"bot_prompt_end": ""
+}
