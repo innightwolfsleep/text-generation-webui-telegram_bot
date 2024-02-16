@@ -236,6 +236,8 @@ class User:
                     data = json.loads(user_file.read())
                 else:
                     data = yaml.safe_load(user_file.read())
+            if "data" in data:
+                data = data["data"]
             #  load persona and scenario
             self.char_file = char_file
             if "user" in data:
