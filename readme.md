@@ -35,7 +35,7 @@ cd source\generators\exllamav2
 python setup.py install --user
 ```
 
-(optional) to use llama.cpp with GPU acceleration reinstall abetlen/llama-cpp-python by guide: [llama-cpp-python#installation-with-hardware-acceleration](https://github.com/abetlen/llama-cpp-python#installation-with-hardware-acceleration)
+(optional) to use llama.cpp with GPU acceleration reinstall abetlen/llama-cpp-python by guide: [llama-cpp-python#installation-with-hardware-acceleration](https://github.com/abetlen/llama-cpp-python#installation-with-hardware-acceleration) or [this guide for windows](https://github.com/abetlen/llama-cpp-python/discussions/871)
 
 ---------------
 HOW TO INSTALL (**extension mode**):
