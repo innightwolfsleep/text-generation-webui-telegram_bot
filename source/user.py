@@ -270,6 +270,9 @@ class User:
             if "description" in data:
                 if data["description"].strip() not in self.context:
                     self.context += f"Description: {data['description'].strip()}\n"
+            print(self.context)
+            print(data)
+            print("description" in data)
             #  add dialogue examples
             if "example_dialogue" in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
@@ -294,6 +297,7 @@ class User:
         except Exception as exception:
             print("load_char_json_file", exception)
         finally:
+            print(self.context)
             return self
 
     def _replace_context_templates(self, s: str) -> str:
