@@ -2,12 +2,12 @@
 	"bot_mode": "admin",
 	"user_name_template": "",
 	"generator_script": "generator_llama_cpp",
-	"model_path": "models/orca-2-13b.Q3_K_S.gguf",
+	"model_path": "models/neuralhermes-2.5-mistral-7b-laser.Q5_K_M.gguf",
 	"prompt_template": "configs/prompt_templates/empty.json",
 	"characters_dir_path": "characters",
 	"character_file": "Example.yaml",
 	"presets_dir_path": "presets",
-	"preset_file": "LLaMA-ggml-Creative.txt",
+	"preset_file": "Mistral-ggml-Creative.txt",
 	"model_lang": "en",
 	"user_lang": "en",
 	"history_dir_path": "history",
@@ -24,5 +24,6 @@
 	"translate_html_tag": ["<span class=\"tg-spoiler\">", "</span>"],
 	"translate_as_hidden_text": "on",
 	"only_mention_in_chat": false,
+	"chance_to_get_answer": 1.0,
 	"proxy_url": ""
 }

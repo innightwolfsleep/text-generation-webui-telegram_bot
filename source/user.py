@@ -80,6 +80,12 @@ class User:
     def history_append(self, message="", answer=""):
         self.history.append({"in": message, "out": answer})
 
+    def history_last_extend(self, message_add=None, answer_add=None):
+        if message_add:
+            self.history[-1]["in"] = self.history[-1]["in"] + "\n" + message_add
+        if answer_add:
+            self.history[-1]["out"] = self.history[-1]["out"] + "\n" + answer_add
+
     def history_as_str(self) -> str:
         history = ""
         if len(self.history) == 0:

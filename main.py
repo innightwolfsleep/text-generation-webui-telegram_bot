@@ -2,6 +2,7 @@ import json
 import io
 import logging
 import asyncio
+import random
 from os.path import exists, normpath
 from os import remove
 from pathlib import Path
@@ -324,12 +325,22 @@ class AiogramLlmBot:
             return False
         if not user.check_flooding(cfg.flood_avoid_delay):
             return False
+
+        # group chat only_mention_in_chat checking
         if cfg.only_mention_in_chat and message.chat.type != "CHAT_PRIVATE":
             me = await self.bot.get_me()
             if "".join(["@", me["username"]]) in user_text:
                 user_text = user_text.replace("".join(["@", me["username"]]), "")
             else:
+                user.history_last_extend(answer_add=user_text)
                 return
+
+        # chance_to_get_answer checking
+        if cfg.chance_to_get_answer < 1 and cfg.chance_to_get_answer > 0:
+            if cfg.chance_to_get_answer > random.uniform(0, 1):
+                user.history_last_extend(answer_add=self.get_user_profile_name(message) + ": " + user_text)
+                return
+
         # Send "typing" message
         typing = await self.start_send_typing_status(chat_id)
         try:
