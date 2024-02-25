@@ -276,9 +276,6 @@ class User:
             if "description" in data:
                 if data["description"].strip() not in self.context:
                     self.context += f"Description: {data['description'].strip()}\n"
-            print(self.context)
-            print(data)
-            print("description" in data)
             #  add dialogue examples
             if "example_dialogue" in data:
                 self.example = f"\n{data['example_dialogue'].strip()}\n"
