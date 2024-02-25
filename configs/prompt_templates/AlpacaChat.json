@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:",
+	"context_prompt_end": "\n",
+	"user_prompt_begin": "### Input:\n",
+	"user_prompt_end": "\n",
+	"bot_prompt_begin": "### Response:\n",
+	"bot_prompt_end": "\n"
+}

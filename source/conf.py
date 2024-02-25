@@ -17,8 +17,8 @@ class Config(BaseModel):
     flood_avoid_delay: float = Field(default=10.0, description="Delay between new messages to avoid flooding (sec)")
     answer_delay: float = Field(default=0.0, description="Additional delay between request and answer.")
     generation_timeout: int = Field(default=300, description="Timeout for text generator")
-    only_mention_in_chat: int = Field(default=True, description="If true - answer only for @bot mentions")
-
+    only_mention_in_chat: bool = Field(default=True, description="If true - answer only for @bot mentions")
+    chance_to_get_answer: float = Field(default=1.0, description="chance to answer, use 0.01-1 for group chat")
     # Single shot prefixes
     replace_prefixes: List = Field(default=["!", "-"], description="Prefix to replace last message")
     impersonate_prefixes: List = Field(default=["#", "+"], description="Prefix for 'impersonate' message")
@@ -148,6 +148,7 @@ class Config(BaseModel):
                 self.sd_api_prompt_self = config.get("sd_api_prompt_self", self.sd_api_prompt_self)
                 self.sd_config_file_path = config.get("sd_config_file_path", self.sd_config_file_path)
                 self.only_mention_in_chat = config.get("only_mention_in_chat", self.only_mention_in_chat)
+                self.chance_to_get_answer = config.get("chance_to_get_answer", self.chance_to_get_answer)
                 self.html_tag = config.get("html_tag", self.html_tag)
                 self.translate_html_tag = config.get("translate_html_tag", self.translate_html_tag)
                 cfg.translation_as_hidden_text = config.get(
