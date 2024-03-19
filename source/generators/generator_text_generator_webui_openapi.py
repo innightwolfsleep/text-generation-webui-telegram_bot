@@ -1,5 +1,6 @@
 import json
 
+import random
 import requests
 
 try:
@@ -14,7 +15,7 @@ class Generator(AbstractGenerator):
 
     def __init__(
         self,
-        model_path=f"http://localhost:5000/v1/completions",
+        model_path="http://127.0.0.1:5000/v1/chat/completions",
         n_ctx=2048,
         seed=0,
         n_gpu_layers=0,
@@ -24,7 +25,7 @@ class Generator(AbstractGenerator):
         if model_path.startswith("http"):
             self.URI = model_path
         else:
-            self.URI = f"http://localhost:5000/v1/completions"
+            self.URI = "http://127.0.0.1:5000/v1/chat/completions"
 
     def generate_answer(
         self,
@@ -41,14 +42,16 @@ class Generator(AbstractGenerator):
             "max_tokens": generation_params["max_new_tokens"],
             "temperature": generation_params["temperature"],
             "top_p": generation_params["top_p"],
-            "stop": stopping_strings,
-            "frequency_penalty": generation_params["frequency_penalty"],
+            "seed": random.randint(0, 1000),
         }
-        response = requests.post(self.URI, headers=self.headers, json=request, verify=False)
+
+        response = requests.post(self.URI, json=request)
+
         if response.status_code == 200:
-            result_raw = response.json()
-            result = result_raw['choices'][0]['text']
-            return result
+            print(response.json())
+            result = response.json()["results"][0]["history"]
+            print(json.dumps(result, indent=4))
+            return result["visible"][-1][1]
         else:
             return default_answer
 
