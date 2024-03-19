@@ -48,7 +48,6 @@ class Generator(AbstractGenerator):
         response = requests.post(self.URI, json=request)
 
         if response.status_code == 200:
-            print(response.json())
             result = response.json()["results"][0]["history"]
             print(json.dumps(result, indent=4))
             return result["visible"][-1][1]
