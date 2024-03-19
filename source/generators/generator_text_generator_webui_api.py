@@ -15,7 +15,7 @@ class Generator(AbstractGenerator):
 
     def __init__(
         self,
-        model_path="http://127.0.0.1:5000/v1/chat/completions",
+        model_path="http://127.0.0.1:5000/v1/completions",
         n_ctx=2048,
         seed=0,
         n_gpu_layers=0,
@@ -25,7 +25,7 @@ class Generator(AbstractGenerator):
         if model_path.startswith("http"):
             self.URI = model_path
         else:
-            self.URI = "http://127.0.0.1:5000/v1/chat/completions"
+            self.URI = "http://127.0.0.1:5000/v1/completions"
 
     def generate_answer(
         self,
