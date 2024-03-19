@@ -43,14 +43,15 @@ class Generator(AbstractGenerator):
             "temperature": generation_params["temperature"],
             "top_p": generation_params["top_p"],
             "seed": random.randint(0, 1000),
+            "stop": stopping_strings,
         }
 
         response = requests.post(self.URI, json=request)
 
         if response.status_code == 200:
-            result = response.json()["results"][0]["history"]
-            print(json.dumps(result, indent=4))
-            return result["visible"][-1][1]
+            result = response.json()["choices"][0]["text"]
+            print(result)
+            return result
         else:
             return default_answer
 
