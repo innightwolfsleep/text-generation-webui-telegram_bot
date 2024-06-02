@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "<|system|>",
+	"context_prompt_end": "<|end|>",
+	"user_prompt_begin": "<|user|>",
+	"user_prompt_end": "<|end|>",
+	"bot_prompt_begin": "<|assistant|>",
+	"bot_prompt_end": "<|end|>"
+}
