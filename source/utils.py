@@ -57,6 +57,8 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
     if direction not in ["to_model", "no_html"]:
         text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
         original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
+        text = sub(r'```.*\n', "```", text, flags=DOTALL)
+        original_text = sub(r'```.*\n', "```", original_text, flags=DOTALL)
         text = sub(r'```([\s\S]*?)```', wrap_code, text, flags=DOTALL)
         original_text = sub(r'```([\s\S]*?)```', wrap_code, original_text, flags=DOTALL)
         if len(original_text) > 2000:
