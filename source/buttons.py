@@ -128,7 +128,7 @@ def get_switch_keyboard(
         i += 1
     # add switch buttons
     ordinary_shift = keyboard_length
-    improved_shift = int(opt_list_length / 8) if opt_list_length / (keyboard_length * 3) > 8 else keyboard_length * 3
+    improved_shift = int(opt_list_length / 12) if opt_list_length / (keyboard_length * 3) > 12 else keyboard_length * 3
     begin_shift = 0
     l_shift = shift - ordinary_shift
     l_shift3 = shift - improved_shift

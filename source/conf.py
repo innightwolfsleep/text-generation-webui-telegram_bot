@@ -44,7 +44,8 @@ class Config(BaseModel):
         default="Detailed description of surroundings:", description="sd api - prompt for empty request"
     )
 
-    html_tag: list = Field(default=["<pre>", "</pre>"], description="html tags for ordinary text")
+    html_tag: list = Field(default=["", ""], description="html tags for ordinary text")
+    code_html_tag: list = Field(default=["<pre><code>", "</code></pre>"], description="html tags for code")
     translate_html_tag: list = Field(
         default=['<span class="tg-spoiler">', "</span>"], description="html tags for translated text"
     )
