@@ -5,7 +5,7 @@ import asyncio
 from functools import wraps, partial
 from os import listdir
 from os.path import exists, normpath
-from re import sub
+from re import sub, DOTALL
 from typing import Dict
 
 from deep_translator import GoogleTranslator as Translator
@@ -51,9 +51,16 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
             text = "can't translate text:" + str(text)
             logging.error("translator_error:\n" + str(exception) + "\n" + str(exception.args))
     # Add HTML tags and other...
+    def wrap_code(match):
+        return f'{cfg.code_html_tag[0]}{match.group(1)}{cfg.code_html_tag[1]}'
+
     if direction not in ["to_model", "no_html"]:
         text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
         original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
+        text = sub(r'```.*', "```", text)
+        original_text = sub(r'```.*', "```", original_text)
+        text = sub(r'```([\s\S]*?)```', wrap_code, text, flags=DOTALL)
+        original_text = sub(r'```([\s\S]*?)```', wrap_code, original_text, flags=DOTALL)
         if len(original_text) > 2000:
             original_text = original_text[:2000]
         if len(text) > 2000:
