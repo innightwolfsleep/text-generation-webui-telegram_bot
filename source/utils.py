@@ -60,12 +60,12 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
         original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
         text = sub(r"```.*", "```", text)
         original_text = sub(r"```.*", "```", original_text)
+        if len(original_text) > 2000:
+            original_text = original_text[:2000]
+        if len(text) > 2000:
+            text = text[:2000]
         text = sub(r"```([\s\S]*?)```", wrap_code, text, flags=DOTALL)
         original_text = sub(r"```([\s\S]*?)```", wrap_code, original_text, flags=DOTALL)
-        if len(original_text) > 2000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1])):
-            original_text = original_text[: 2000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1]))]
-        if len(text) > 2000 - (len(cfg.translate_html_tag[0]) + len(cfg.translate_html_tag[1])):
-            text = text[: 2000 - (len(cfg.translate_html_tag[0]) + len(cfg.translate_html_tag[1]))]
         if cfg.llm_lang != user.language and direction == "to_user" and cfg.translation_as_hidden_text == "on":
             text = "\n\n".join(
                 [
@@ -74,8 +74,8 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
                 ]
             )
         else:
-            if len(text) > 4000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1])):
-                text = text[: 4000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1]))]
+            if len(text) > 4000:
+                text = text[:4000]
             text = cfg.html_tag[0] + text + cfg.html_tag[1]
     return text
 
