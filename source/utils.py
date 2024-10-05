@@ -50,34 +50,32 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
         except Exception as exception:
             text = "can't translate text:" + str(text)
             logging.error("translator_error:\n" + str(exception) + "\n" + str(exception.args))
+
     # Add HTML tags and other...
     def wrap_code(match):
-        return f'{cfg.code_html_tag[0]}{match.group(1)}{cfg.code_html_tag[1]}'
+        return f"{cfg.code_html_tag[0]}{match.group(1)}{cfg.code_html_tag[1]}"
 
     if direction not in ["to_model", "no_html"]:
         text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
         original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
-        text = sub(r'```.*', "```", text)
-        original_text = sub(r'```.*', "```", original_text)
-        text = sub(r'```([\s\S]*?)```', wrap_code, text, flags=DOTALL)
-        original_text = sub(r'```([\s\S]*?)```', wrap_code, original_text, flags=DOTALL)
-        if len(original_text) > 2000:
-            original_text = original_text[:2000]
-        if len(text) > 2000:
-            text = text[:2000]
+        text = sub(r"```.*", "```", text)
+        original_text = sub(r"```.*", "```", original_text)
+        text = sub(r"```([\s\S]*?)```", wrap_code, text, flags=DOTALL)
+        original_text = sub(r"```([\s\S]*?)```", wrap_code, original_text, flags=DOTALL)
+        if len(original_text) > 2000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1])):
+            original_text = original_text[: 2000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1]))]
+        if len(text) > 2000 - (len(cfg.translate_html_tag[0]) + len(cfg.translate_html_tag[1])):
+            text = text[: 2000 - (len(cfg.translate_html_tag[0]) + len(cfg.translate_html_tag[1]))]
         if cfg.llm_lang != user.language and direction == "to_user" and cfg.translation_as_hidden_text == "on":
-            text = (
-                cfg.html_tag[0]
-                + original_text
-                + cfg.html_tag[1]
-                + "\n"
-                + cfg.translate_html_tag[0]
-                + text
-                + cfg.translate_html_tag[1]
+            text = "\n\n".join(
+                [
+                    cfg.html_tag[0] + original_text + cfg.html_tag[1],
+                    cfg.translate_html_tag[0] + text + cfg.translate_html_tag[1],
+                ]
             )
         else:
-            if len(text) > 4000:
-                text = text[:4000]
+            if len(text) > 4000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1])):
+                text = text[: 4000 - (len(cfg.html_tag[0]) + len(cfg.html_tag[1]))]
             text = cfg.html_tag[0] + text + cfg.html_tag[1]
     return text
 
