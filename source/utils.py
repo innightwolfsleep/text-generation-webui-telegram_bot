@@ -52,21 +52,21 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
             logging.error("translator_error:\n" + str(exception) + "\n" + str(exception.args))
 
     # Add HTML tags and other...
-    def wrap_code(match):
-        return f"{cfg.code_html_tag[0]}{match.group(1)}{cfg.code_html_tag[1]}"
+    def truncate_trim_wrap_code(text, max_length):
+        def wrap_code(match):
+            return f"{cfg.code_html_tag[0]}{match.group(1)}{cfg.code_html_tag[1]}"
+
+        text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
+        text = sub(r"```.*", "```", text)
+        if len(text) > max_length:
+            text = text[:max_length]
+        text = sub(r"```([\s\S]*?)```", wrap_code, text, flags=DOTALL)
+        return text
 
     if direction not in ["to_model", "no_html"]:
-        text = text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
-        original_text = original_text.replace("#", "&#35;").replace("<", "&#60;").replace(">", "&#62;")
-        text = sub(r"```.*", "```", text)
-        original_text = sub(r"```.*", "```", original_text)
-        if len(original_text) > 2000:
-            original_text = original_text[:2000]
-        if len(text) > 2000:
-            text = text[:2000]
-        text = sub(r"```([\s\S]*?)```", wrap_code, text, flags=DOTALL)
-        original_text = sub(r"```([\s\S]*?)```", wrap_code, original_text, flags=DOTALL)
         if cfg.llm_lang != user.language and direction == "to_user" and cfg.translation_as_hidden_text == "on":
+            original_text = truncate_trim_wrap_code(original_text, 2000)
+            text = truncate_trim_wrap_code(text, 2000)
             text = "\n\n".join(
                 [
                     cfg.html_tag[0] + original_text + cfg.html_tag[1],
@@ -74,8 +74,7 @@ async def prepare_text(original_text: str, user: User, direction="to_user"):
                 ]
             )
         else:
-            if len(text) > 4000:
-                text = text[:4000]
+            text = truncate_trim_wrap_code(text, 4000)
             text = cfg.html_tag[0] + text + cfg.html_tag[1]
     return text
 
