@@ -78,6 +78,7 @@ class Config(BaseModel):
     history_dir_path: str = Field(default="history", description="history")
     characters_dir_path: str = Field(default="characters", description="characters")
     presets_dir_path: str = Field(default="presets", description="")
+    file_download_dir: str = Field(default="temp_files", description="")
     token_file_path: str = Field(default="telegram_token.txt", description="")
     admins_file_path: str = Field(default="telegram_admins.txt", description="")
     users_file_path: str = Field(default="telegram_users.txt", description="")
