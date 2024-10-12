@@ -2,6 +2,7 @@ import json
 import io
 import logging
 import asyncio
+import os
 import random
 from os.path import exists, normpath
 from os import remove
@@ -99,7 +100,7 @@ class AiogramLlmBot:
         self.dp = Dispatcher(self.bot)
         self.dp.register_message_handler(self.thread_welcome_message, commands=["start"])
         self.dp.register_message_handler(self.thread_get_message)
-        self.dp.register_message_handler(self.thread_get_json_document, content_types=types.ContentType.DOCUMENT)
+        self.dp.register_message_handler(self.thread_get_document, content_types=types.ContentType.DOCUMENT)
         self.dp.register_callback_query_handler(self.thread_push_button)
         await self.dp.start_polling()
 
@@ -299,6 +300,30 @@ class AiogramLlmBot:
 
     # =============================================================================
     # Message handler
+    async def thread_get_document(self, message: Message):
+        file_name = message.document.file_name
+        file_id = message.document.file_id
+        chat_id = message.chat.id
+        utils.init_check_user(self.users, chat_id)
+        user = self.users[chat_id]
+        if file_name.endswith(".json"):
+            await self.thread_get_json_document(message)
+        else:
+            document_text = ""
+            document_path = f"{cfg.file_download_dir}/{file_name}"
+            await self.bot.download_file_by_id(file_id, destination=document_path)
+            with open(document_path, "r") as f:
+                content = f.read()
+            os.remove(document_path)
+            document_text += f"{file_name}:\n{content}\n\n"
+            await tp.aget_answer(
+                text_in="\n".join([cfg.permanent_add_context_prefixes[0], document_text]),
+                user=user,
+                bot_mode=cfg.bot_mode,
+                generation_params=cfg.generation_params,
+                name_in=self.get_user_profile_name(message),
+            )
+            await message.reply(text="File '" + file_name + "' added to context.")
 
     async def thread_welcome_message(self, message: types.Message):
         chat_id = message.chat.id
@@ -336,7 +361,7 @@ class AiogramLlmBot:
                 return
 
         # chance_to_get_answer checking
-        if cfg.chance_to_get_answer < 1 and cfg.chance_to_get_answer > 0:
+        if 1 > cfg.chance_to_get_answer > 0:
             if cfg.chance_to_get_answer > random.uniform(0, 1):
                 user.history_last_extend(answer_add=self.get_user_profile_name(message) + ": " + user_text)
                 return
