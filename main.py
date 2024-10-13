@@ -129,10 +129,11 @@ class AiogramLlmBot:
                 msg = msg.replace("_NAME1_", user.name1)
                 msg = msg.replace("_NAME2_", user.name2)
                 msg = msg.replace("_CONTEXT_", user.context)
-                msg = msg.replace("_GREETING_", await utils.prepare_text(user.greeting, user, "to_user"))
-                msg = msg.replace("_CUSTOM_STRING_", await utils.prepare_text(custom_string, user, "to_user"))
+                msg = msg.replace("_GREETING_", user.greeting)
+                msg = msg.replace("_CUSTOM_STRING_", custom_string)
                 msg = msg.replace("_OPEN_TAG_", cfg.html_tag[0])
                 msg = msg.replace("_CLOSE_TAG_", cfg.html_tag[1])
+                msg = await utils.prepare_text(msg, user, "to_user")
                 return msg
             else:
                 return const.UNKNOWN_TEMPLATE
