@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "<s>You are a helpful assistant",
+	"context_prompt_end": "",
+	"user_prompt_begin": "<|message_sep|>user<|role_sep|>",
+	"user_prompt_end": "",
+	"bot_prompt_begin": "<|message_sep|>assistant<|role_sep|>",
+	"bot_prompt_end": ""
+}
