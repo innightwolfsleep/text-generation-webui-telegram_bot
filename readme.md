@@ -1,9 +1,11 @@
 
 ![Image1](https://github.com/innightwolfsleep/storage/raw/main/textgen_telegram.PNG)
 
-WrAPPer for llama.cpp(default), exllama or transformers. 
-&
-An EXTension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui).s
+- wrAPPer for llama.cpp(default), exllama or transformers. 
+
+- wrAPPer for [ollama](https://github.com/ollama/ollama) (config example - config/ollama_config.json)
+
+- an EXTension for [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui).s
 
 Provide telegram chat with various additional functional like buttons, prefixes, voice/image generation.
 
