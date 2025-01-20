@@ -42,6 +42,7 @@ class Generator(AbstractGenerator):
                 "temperature": generation_params["temperature"],
                 "top_p": generation_params["top_p"],
                 "top_k": generation_params["top_k"],
+                "num_ctx": self.n_ctx,
                 "max_tokens": generation_params["max_new_tokens"],
                 "seed": random.randint(0, 1000),  # Random seed for variability
             },
