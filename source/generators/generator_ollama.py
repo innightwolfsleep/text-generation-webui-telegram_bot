@@ -46,7 +46,7 @@ class Generator(AbstractGenerator):
                 "max_tokens": generation_params["max_new_tokens"],
                 "seed": random.randint(0, 1000),  # Random seed for variability
                 "raw": True,
-                "stop": stopping_strings,
+                #"stop": stopping_strings,
             },
         }
 
