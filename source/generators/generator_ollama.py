@@ -23,6 +23,7 @@ class Generator(AbstractGenerator):
         self.n_ctx = n_ctx
         self.headers = {"Content-Type": "application/json"}
         self.URI = "http://127.0.0.1:11434/api/generate"  # Fallback to default Ollama API endpoint
+        self.last_token_count = 0  # Внутренняя переменная для хранения количества токенов
 
     def generate_answer(
         self,
@@ -56,19 +57,26 @@ class Generator(AbstractGenerator):
         if response.status_code == 200:
             # Ollama returns a stream of responses, so we need to collect all parts
             full_response = ""
+            token_count = 0  # Счетчик токенов для текущей генерации
+
             for line in response.iter_lines():
                 if line:
                     decoded_line = json.loads(line.decode("utf-8"))
                     full_response += decoded_line.get("response", "")
+                    token_count = decoded_line.get("eval_count", 0)  # Обновляем количество токенов
+
+            # Сохраняем количество токенов во внутренней переменной
+            self.last_token_count = token_count
 
             return full_response
         else:
             # Return the default answer if the request fails
+            self.last_token_count = 0  # Сбрасываем счетчик токенов в случае ошибки
             return default_answer
 
-    def tokens_count(self, text: str):
-        # Simple token counting implementation (can be replaced with a proper tokenizer)
-        return len(text)
+    def tokens_count(self, text: str = None):
+        # Возвращаем количество токенов из последней генерации
+        return self.last_token_count
 
     def get_model_list(self):
         # Fetch the list of available models from Ollama
