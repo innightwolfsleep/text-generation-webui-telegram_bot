@@ -50,6 +50,7 @@ class Generator(AbstractGenerator):
                 "num_ctx": self.n_ctx,
                 "max_tokens": generation_params["max_new_tokens"],
                 "seed": random.randint(0, 1000),  # Random seed for variability
+                "stop": stopping_strings
             },
         }
         # Send the request to Ollama API
