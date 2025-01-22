@@ -39,6 +39,10 @@ class Generator(AbstractGenerator):
         request = {
             "model": self.model,  # Specify the model to use (e.g., llama3)
             "prompt": prompt,
+            "raw": True,
+            "stream": False,
+            "system": "",
+            "template": "",
             "options": {
                 "temperature": generation_params["temperature"],
                 "top_p": generation_params["top_p"],
@@ -46,14 +50,10 @@ class Generator(AbstractGenerator):
                 "num_ctx": self.n_ctx,
                 "max_tokens": generation_params["max_new_tokens"],
                 "seed": random.randint(0, 1000),  # Random seed for variability
-                "raw": True,
-                #"stop": stopping_strings,
             },
         }
-
         # Send the request to Ollama API
         response = requests.post(self.URI, json=request, headers=self.headers)
-
         if response.status_code == 200:
             # Ollama returns a stream of responses, so we need to collect all parts
             full_response = ""
@@ -75,8 +75,8 @@ class Generator(AbstractGenerator):
             return default_answer
 
     def tokens_count(self, text: str = None):
-        # Возвращаем количество токенов из последней генерации
-        return self.last_token_count
+        # NEED TO BE REWORKED: let ollama check and truncate text
+        return 1
 
     def get_model_list(self):
         # Fetch the list of available models from Ollama

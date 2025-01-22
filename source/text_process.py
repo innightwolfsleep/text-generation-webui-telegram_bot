@@ -81,13 +81,8 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         if text_in == const.GENERATOR_MODE_DEL_WORD:
             # If user_in starts with replace_prefix - fully replace last message
             # get and change last message
-            last_message = user.history_last_out
-            last_word = split(r"\n|\.+ +|: +|! +|\? +|\' +|\" +|; +|\) +|\* +", last_message)[-1]
-            if len(last_word) == 0 and len(last_message) > 1:
-                last_word = " "
-            new_last_message = last_message[: -(len(last_word))]
-            new_last_message = new_last_message.strip()
-            if len(new_last_message) == 0:
+            new_last_message = delete_last_text_block(user.history_last_out)
+            if not new_last_message.strip():
                 return_msg_action = const.MSG_NOTHING_TO_DO
             else:
                 user.change_last_message(history_out=new_last_message)
@@ -165,11 +160,7 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         stopping_strings = generation_params["stopping_strings"].copy()
         eos_token = generation_params["eos_token"]
         if bot_mode in [const.MODE_CHAT, const.MODE_CHAT_R, const.MODE_ADMIN]:
-            stopping_strings += [
-                name_in + ":",
-                user.name1 + ":",
-                user.name2 + ":",
-            ]
+            stopping_strings += [user.name2 + ":" if name_in == user.name1 else user.name1 + ":"]
         if cfg.bot_prompt_end != "":
             stopping_strings.append(cfg.bot_prompt_end)
 
@@ -262,3 +253,19 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         generator_lock.release()
         return_msg_action = const.MSG_SYSTEM
         return user.history_last_out, return_msg_action
+
+
+def delete_last_text_block(text_in):
+    if '\n\n' in text_in:
+        parts = text_in.split('\n\n')
+        return '\n\n'.join(parts[:-1]).strip()
+    elif '\n' in text_in:
+        parts = text_in.split('\n')
+        return '\n'.join(parts[:-1]).strip()
+    else:
+        last_word = split(r"\n|\.+ +|: +|! +|\? +|\' +|\" +|; +|\) +|\* +", text_in)[-1]
+        if len(last_word) == 0 and len(text_in) > 1:
+            last_word = " "
+        new_last_message = text_in[: -(len(last_word))]
+        new_last_message = new_last_message.strip()
+        return new_last_message
