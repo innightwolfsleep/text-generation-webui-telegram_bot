@@ -160,7 +160,11 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
         stopping_strings = generation_params["stopping_strings"].copy()
         eos_token = generation_params["eos_token"]
         if bot_mode in [const.MODE_CHAT, const.MODE_CHAT_R, const.MODE_ADMIN]:
-            stopping_strings += [user.name2 + ":" if name_in == user.name1 else user.name1 + ":"]
+            stopping_strings += [
+                name_in + ":",
+                user.name1 + ":",
+                user.name2 + ":",
+            ]
         if cfg.bot_prompt_end != "":
             stopping_strings.append(cfg.bot_prompt_end)
 
