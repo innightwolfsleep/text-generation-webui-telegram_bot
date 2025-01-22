@@ -52,10 +52,8 @@ class Generator(AbstractGenerator):
                 "seed": random.randint(0, 1000),  # Random seed for variability
             },
         }
-        print(request)
         # Send the request to Ollama API
         response = requests.post(self.URI, json=request, headers=self.headers)
-        print(response)
         if response.status_code == 200:
             # Ollama returns a stream of responses, so we need to collect all parts
             full_response = ""
@@ -66,7 +64,6 @@ class Generator(AbstractGenerator):
                     decoded_line = json.loads(line.decode("utf-8"))
                     full_response += decoded_line.get("response", "")
                     token_count = decoded_line.get("eval_count", 0)  # Обновляем количество токенов
-                    print(decoded_line)
 
             # Сохраняем количество токенов во внутренней переменной
             self.last_token_count = token_count
