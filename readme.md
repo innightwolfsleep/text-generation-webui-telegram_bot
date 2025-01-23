@@ -1,5 +1,5 @@
 
-![Image1](https://raw.githubusercontent.com/innightwolfsleep/text-generation-webui-telegram_bot/refs/heads/main/manuals/images/textgen_telegram.PNG)
+![Image1](https://raw.githubusercontent.com/innightwolfsleep/text-generation-webui-telegram_bot/refs/heads/main/manuals/images/textgen_telegram.png)
 
 - wrAPPer for llama.cpp(default), exllama or transformers. 
 
