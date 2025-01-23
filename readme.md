@@ -13,9 +13,9 @@ Provide telegram chat with various additional functional like buttons, prefixes,
 ---------------
 HOW TO INSTALL (**standalone app**):
 1) clone this repo  
-`git clone https://github.com/innightwolfsleep/llm_telegram_bot `
+```git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot ```
 2) install requirements.  
-`pip install -r llm_telegram_bot\requirements_app.txt`
+```pip install -r text-generation-webui-telegram_bot\requirements_app.txt```
 
 HOW TO RUN (**standalone app**):
 1) get bot token from https://t.me/BotFather 
