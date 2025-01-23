@@ -3,7 +3,7 @@
 	"user_name_template": "",
 	"generator_script": "generator_ollama",
 	"model_path": "llama3.2",
-	"prompt_template": "configs/prompt_templates/llama3.json",
+	"prompt_template": "prompt_templates/llama3.json",
 	"characters_dir_path": "characters",
 	"character_file": "Example.yaml",
 	"presets_dir_path": "presets",
