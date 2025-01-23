@@ -1,8 +1,0 @@
-{
-	"context_prompt_begin": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n",
-	"context_prompt_end": "<|eot_id|>",
-	"user_prompt_begin": "<|start_header_id|>user<|end_header_id|>\n\n",
-	"user_prompt_end": "<|eot_id|>",
-	"bot_prompt_begin": "<|start_header_id|>assistant<|end_header_id|>\n\n",
-	"bot_prompt_end": "<|eot_id|>"
-}

@@ -1,8 +1,0 @@
-{
-	"context_prompt_begin": "<|im_start|>system<|im_sep|>",
-	"context_prompt_end": "<|im_end|>",
-	"user_prompt_begin": "<|im_start|>user<|im_sep|>",
-	"user_prompt_end": "<|im_end|>",
-	"bot_prompt_begin": "<|im_start|>assistant<|im_sep|>",
-	"bot_prompt_end": "<|im_end|>"
-}

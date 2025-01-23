@@ -9,3 +9,5 @@ characters/*
 history/*
 history/telegram_history_here.txt
 .env
+.idea
+llama_cpp

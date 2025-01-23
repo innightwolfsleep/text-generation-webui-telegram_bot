@@ -1,0 +1,8 @@
+{
+	"context_prompt_begin": "<start_of_turn>",
+	"context_prompt_end": "<end_of_turn>",
+	"user_prompt_begin": "<start_of_turn>",
+	"user_prompt_end": "<end_of_turn>",
+	"bot_prompt_begin": "<start_of_turn>",
+	"bot_prompt_end": "<end_of_turn>"
+}
