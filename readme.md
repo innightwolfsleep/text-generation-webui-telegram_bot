@@ -81,6 +81,7 @@ FEATURES:
 - "📷" prefix to make photo via SD api. Write like "📷Chiharu Yamada", not single "📷". Need to run ([StableDiffusion](https://github.com/AUTOMATIC1111/stable-diffusion-webui)) with --api key first.
 - save/load history in chat by downloading/forwarding to chat .json file
 - integrated auto-translate (you can set model/user language parameter) 
+- receiving text files (code, text, etc)
 - voice generating ([silero](https://github.com/snakers4/silero-models)), en and ru variants
 - translation_as_hidden_text option in .cfg - if you want to learn english with bot
 - telegram_users.txt - list of permitted users (if empty - permit for all)

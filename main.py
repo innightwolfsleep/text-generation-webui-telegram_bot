@@ -313,7 +313,7 @@ class AiogramLlmBot:
             document_text = ""
             document_path = f"{cfg.file_download_dir}/{file_name}"
             await self.bot.download_file_by_id(file_id, destination=document_path)
-            with open(document_path, "r") as f:
+            with open(document_path, "r", encoding='utf-8', errors='ignore') as f:
                 content = f.read()
             os.remove(document_path)
             document_text += f"{file_name}:\n{content}\n\n"
