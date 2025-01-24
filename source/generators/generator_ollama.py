@@ -48,7 +48,7 @@ class Generator(AbstractGenerator):
                 "top_p": generation_params["top_p"],
                 "top_k": generation_params["top_k"],
                 "num_ctx": self.n_ctx,
-                "max_tokens": generation_params["max_new_tokens"],
+                "num_predict": generation_params["max_new_tokens"],
                 "seed": random.randint(0, 1000),  # Random seed for variability
                 "stop": stopping_strings
             },
