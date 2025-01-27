@@ -1,5 +1,6 @@
 import importlib
 import logging
+from typing import List, Dict
 
 try:
     from extensions.telegram_bot.source.generators.abstract_generator import AbstractGenerator
@@ -42,7 +43,13 @@ def init(script="generator_llama_cpp.py", model_path="", n_ctx=4096, n_gpu_layer
 
 
 def generate_answer(
-        prompt, generation_params, eos_token, stopping_strings, default_answer: str, turn_template=""
+        prompt: str,
+        generation_params: Dict,
+        eos_token: List[str],
+        stopping_strings: List[str],
+        default_answer: str,
+        turn_template: str = "",
+        **kwargs,
 ) -> str:
     """Generate and return answer string.
 
@@ -62,15 +69,16 @@ def generate_answer(
     generation_params.update({"turn_template": turn_template})
     try:
         answer = generator.generate_answer(
-            prompt,
-            generation_params,
-            eos_token,
-            stopping_strings,
-            default_answer,
-            turn_template,
+            prompt=prompt,
+            generation_params=generation_params,
+            eos_token=eos_token,
+            stopping_strings=stopping_strings,
+            default_answer=default_answer,
+            turn_template=turn_template,
+            kwargs=kwargs
         )
     except Exception as exception:
-        print("generation error:", str(exception) + str(exception.args))
+        logging.error("generation error:", str(exception) + str(exception.args))
     return answer
 
 

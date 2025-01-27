@@ -24,11 +24,11 @@ class AbstractGenerator(ABC):
         self,
         prompt: str,
         generation_params: Dict,
-        eos_token: str,
+        eos_token: List[str],
         stopping_strings: List,
         default_answer: str,
         turn_template: str,
-        **kwargs
+        kwargs: Dict
     ) -> str:
         """
         Get llm answer

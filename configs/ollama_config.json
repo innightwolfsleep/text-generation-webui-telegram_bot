@@ -3,7 +3,7 @@
 	"user_name_template": "",
 	"generator_script": "generator_ollama",
 	"model_path": "hf.co/mradermacher/EVA-Instruct-32B-v2-i1-GGUF:Q4_K_M",
-	"prompt_template": "prompt_templates/ChatML.json",
+	"prompt_template": "prompt_templates/empty.json",
 	"characters_dir_path": "characters",
 	"character_file": "Example.yaml",
 	"presets_dir_path": "presets",
