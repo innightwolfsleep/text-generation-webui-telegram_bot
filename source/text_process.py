@@ -223,6 +223,10 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             eos_token=eos_token,
             stopping_strings=stopping_strings,
             default_answer=answer,
+            history=user.history,
+            context=user.context,
+            greeting=user.greeting,
+            example=user.example,
             turn_template=user.turn_template,
         )
         if debug_flag:
