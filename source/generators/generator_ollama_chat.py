@@ -13,36 +13,49 @@ class Generator(AbstractGenerator):
     preset_change_allowed = False  # Whether preset file changing is allowed.
 
     def __init__(
-        self,
-        model_path="llama",  # Default Ollama API endpoint
-        n_ctx=2048,
-        seed=0,
-        n_gpu_layers=0,
+            self,
+            model_path="llama",  # Default Ollama API endpoint
+            n_ctx=2048,
+            seed=0,
+            n_gpu_layers=0,
     ):
         self.model = model_path
         self.n_ctx = n_ctx
         self.headers = {"Content-Type": "application/json"}
-        self.URI = "http://127.0.0.1:11434/api/generate"  # Fallback to default Ollama API endpoint
+        self.URI = "http://127.0.0.1:11434/api/chat"  # Fallback to default Ollama API endpoint
         self.last_token_count = 0  # Внутренняя переменная для хранения количества токенов
 
     def generate_answer(
-        self,
-        prompt,
-        generation_params,
-        eos_token,
-        stopping_strings,
-        default_answer,
-        turn_template="",
-        **kwargs,
+            self,
+            prompt,
+            generation_params,
+            eos_token,
+            stopping_strings,
+            default_answer,
+            kwargs,
+            turn_template="",
     ):
         # Prepare the request payload for Ollama API
+        history = kwargs["history"]
+        context = kwargs["context"]
+        greeting = kwargs["greeting"]
+        example = kwargs["example"]
+        messages = [
+            {"role": "system", "content": context},
+            {"role": "system", "content": example},
+            {"role": "assistant", "content": greeting},
+        ]
+        for m in history:
+            if len(m["in"]) > 0:
+                messages.append({"role": "user", "content": m["in"]})
+            if len(m["out"]) > 0:
+                messages.append({"role": "assistant", "content": m["out"]})
+
         request = {
             "model": self.model,  # Specify the model to use (e.g., llama3)
-            "prompt": prompt,
-            "raw": True,
+            "messages": messages,
+            "role": "assistant",
             "stream": False,
-            "system": "",
-            "template": "",
             "options": {
                 "temperature": generation_params["temperature"],
                 "top_p": generation_params["top_p"],
@@ -57,19 +70,9 @@ class Generator(AbstractGenerator):
         response = requests.post(self.URI, json=request, headers=self.headers)
         if response.status_code == 200:
             # Ollama returns a stream of responses, so we need to collect all parts
-            full_response = ""
-            token_count = 0  # Счетчик токенов для текущей генерации
-
-            for line in response.iter_lines():
-                if line:
-                    decoded_line = json.loads(line.decode("utf-8"))
-                    full_response += decoded_line.get("response", "")
-                    token_count = decoded_line.get("eval_count", 0)  # Обновляем количество токенов
-
-            # Сохраняем количество токенов во внутренней переменной
-            self.last_token_count = token_count
-
-            return full_response
+            decoded_line = json.loads(response.content.decode("utf-8"))
+            result = decoded_line['message']['content']
+            return result
         else:
             # Return the default answer if the request fails
             self.last_token_count = 0  # Сбрасываем счетчик токенов в случае ошибки
@@ -77,7 +80,7 @@ class Generator(AbstractGenerator):
 
     def tokens_count(self, text: str = None):
         # NEED TO BE REWORKED: let ollama check and truncate text
-        return 1
+        return 0
 
     def get_model_list(self):
         # Fetch the list of available models from Ollama
