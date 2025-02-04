@@ -254,6 +254,11 @@ def get_answer(text_in: str, user: User, bot_mode: str, generation_params: Dict,
             if str(user.msg_id[-1]) in user.previous_history:
                 if user.previous_history[str(user.msg_id[-1])][-1] == user.history_last_out:
                     return_msg_action = const.MSG_NOTHING_TO_DO
+        if return_msg_action == const.MSG_SD_API:
+            user.change_last_message(history_out=user.history_last_out.replace(cfg.sd_api_prompt_self, ""))
+            user.change_last_message(
+                history_out=user.history_last_out.replace(
+                    cfg.sd_api_prompt_of.replace("OBJECT", text_in[1:].strip()), ""))
         return user.history_last_out, return_msg_action
     except Exception as exception:
         logging.error("get_answer (generator part) " + str(exception) + str(exception.args))
