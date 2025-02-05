@@ -10,7 +10,7 @@ except ImportError:
 
 class Generator(AbstractGenerator):
     model_change_allowed = False  # Whether model changing is allowed without stopping.
-    preset_change_allowed = False  # Whether preset file changing is allowed.
+    preset_change_allowed = True  # Whether preset file changing is allowed.
 
     def __init__(
             self,
