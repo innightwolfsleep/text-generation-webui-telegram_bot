@@ -9,7 +9,7 @@ except ImportError:
 
 
 class Generator(AbstractGenerator):
-    model_change_allowed = False  # Whether model changing is allowed without stopping.
+    model_change_allowed = True  # Whether model changing is allowed without stopping.
     preset_change_allowed = True  # Whether preset file changing is allowed.
 
     def __init__(
@@ -88,5 +88,5 @@ class Generator(AbstractGenerator):
         return []
 
     def load_model(self, model_file: str):
-        # Placeholder for loading a model (if needed)
-        pass
+        self.model = model_file
+        return True

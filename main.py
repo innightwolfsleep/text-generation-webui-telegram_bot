@@ -699,7 +699,7 @@ class AiogramLlmBot:
         if tp.generator.get_model_list is not None:
             model_list = tp.generator.get_model_list()
             model_file = model_list[int(option.replace(const.BTN_MODEL_LOAD, ""))]
-            chat_id = cbq.effective_chat.id
+            chat_id = cbq.message.chat.id
             send_text = "Loading " + model_file + ". 🪄"
             message_id = cbq.message.message_id
             await self.bot.edit_message_text(
