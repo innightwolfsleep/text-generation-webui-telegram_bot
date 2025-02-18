@@ -1,5 +1,5 @@
 
-![Image1](https://raw.githubusercontent.com/innightwolfsleep/text-generation-webui-telegram_bot/refs/heads/main/manuals/images/textgen_telegram.png)
+![Image1](https://raw.githubusercontent.com/innightwolfsleep/llm_telegram_bot/refs/heads/main/manuals/images/textgen_telegram.png)
 
 - wrAPPer for llama.cpp(default), exllama or transformers. 
 
@@ -13,9 +13,9 @@ Provide telegram chat with various additional functional like buttons, prefixes,
 ---------------
 HOW TO INSTALL (**standalone app**):
 1) clone this repo  
-```git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot ```
+```git clone https://github.com/innightwolfsleep/llm_telegram_bot ```
 2) install requirements.  
-```pip install -r text-generation-webui-telegram_bot\requirements_app.txt```
+```pip install -r llm_telegram_bot\requirements_app.txt```
 
 HOW TO RUN (**standalone app**):
 1) get bot token from https://t.me/BotFather 
@@ -44,7 +44,7 @@ HOW TO INSTALL (**extension mode**):
 1) obviously, install  [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) first, add model, set all options you need
 2) run `cmd_windows.bat` or `cmd_linux.sh` to enable venv
 3) clone this repo to "text-generation-webui\extensions"  
-`git clone https://github.com/innightwolfsleep/text-generation-webui-telegram_bot extensions\telegram_bot`
+`git clone https://github.com/innightwolfsleep/llm_telegram_bot extensions\telegram_bot`
 4) install requirements  
 `pip install -r extensions\telegram_bot\requirements_ext.txt`
 
